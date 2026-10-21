@@ -37,6 +37,11 @@ describe('QUESTIONS', () => {
     ])
   })
 
+  it('P7 tiene el placeholder literal de la spec §5', () => {
+    const p7 = QUESTIONS.find((q) => q.id === 'p7')
+    expect(p7?.type === 'open' && p7.placeholder).toBe('Ej.: Ven a ver aves increíbles en un lugar lleno de vida')
+  })
+
   it('solo p3 y p4 permiten "otro"', () => {
     expect(QUESTIONS.filter((q) => q.allowOther).map((q) => q.id)).toEqual(['p3', 'p4'])
   })

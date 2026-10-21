@@ -99,6 +99,7 @@ export const QUESTIONS = [
     allowOther: false,
     minLength: 10,
     maxLength: 280,
+    placeholder: 'Ej.: Ven a ver aves increíbles en un lugar lleno de vida',
   },
 ] as const
 
