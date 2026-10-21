@@ -10,7 +10,7 @@ Monorepo con npm workspaces:
 
 ## Requisitos
 
-- Node 20 o superior
+- Node 20.19 o superior
 - MySQL (para la API)
 
 ## Configuración

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Encuesta de experiencia del 2.º October Big Day (Parque de Vida Los Olivos, Serfunorte)",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "workspaces": [
     "shared",
@@ -20,10 +20,10 @@
     "lint": "eslint ."
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.5",
     "concurrently": "^10.0.6",
-    "eslint": "^10.13.0",
-    "typescript": "^6.0.3",
+    "eslint": "^9.39.5",
+    "typescript": "~5.9",
     "typescript-eslint": "^8.72.0"
   }
 }
