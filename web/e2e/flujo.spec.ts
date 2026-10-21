@@ -1,8 +1,9 @@
 import AxeBuilder from '@axe-core/playwright'
 import { QUESTIONS } from '@bigday/shared'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { type Locator, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { expect, test } from './fixtures'
 import { detenerReloj, PROYECTO_ANCHOS, soloEnProyectoDeAnchos, sufijoProyecto } from './utilidades'
 
 // Flujo completo de la encuesta con la API simulada (page.route):

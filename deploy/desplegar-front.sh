@@ -3,8 +3,10 @@
 # Uso: deploy/desplegar-front.sh [--limpiar] [--simular] [DESTINO]
 #   DESTINO   Carpeta de destino (también por variable DESTINO).
 #             Por defecto: /Volumes/AppServ/www/bigDay-encuesta
-#   --limpiar Tras copiar, borra del destino solo los archivos viejos con hash de assets/
-#             (los que ya no están en el build nuevo). No toca nada más.
+#   --limpiar Tras copiar, borra de assets/ solo los archivos con nombre hasheado de Vite
+#             (nombre-XXXXXXXX.ext, 8 caracteres de hash) que no están en el build nuevo.
+#             Cualquier otro archivo se deja intacto. Ejecutar fuera de hora pico: pestañas
+#             abiertas con el build anterior podrían pedir aún sus chunks viejos.
 #   --simular Muestra qué se copiaría (rsync --dry-run) sin escribir en el destino.
 # Sin --limpiar nunca se borra nada en el destino (no se usa rsync --delete).
 set -euo pipefail
@@ -20,7 +22,7 @@ for arg in "$@"; do
   case "$arg" in
     --limpiar) LIMPIAR=1 ;;
     --simular) SIMULAR=1 ;;
-    -h|--help) sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "Opción desconocida: $arg" >&2; exit 2 ;;
     *) ARG_DESTINO="$arg" ;;
   esac
@@ -75,6 +77,8 @@ if [ "$LIMPIAR" -eq 1 ]; then
   if [ -d "$DESTINO/assets" ]; then
     echo "==> Limpiando assets viejos en $DESTINO/assets"
     while IFS= read -r archivo; do
+      # Solo nombres con el patrón de hash de Vite: nombre-XXXXXXXX.ext
+      [[ "$archivo" =~ ^.+-[A-Za-z0-9_-]{8}\.[A-Za-z0-9.]+$ ]] || continue
       if [ ! -e "$DIST/assets/$archivo" ]; then
         if [ "$SIMULAR" -eq 1 ]; then
           echo "(simulación) se borraría assets/$archivo"
@@ -82,7 +86,7 @@ if [ "$LIMPIAR" -eq 1 ]; then
           rm -f -- "$DESTINO/assets/$archivo" && echo "borrado assets/$archivo"
         fi
       fi
-    done < <(cd "$DESTINO/assets" && find . -maxdepth 1 -type f -name '*-*.*' -exec basename {} \;)
+    done < <(cd "$DESTINO/assets" && find . -maxdepth 1 -type f -exec basename {} \;)
   fi
 fi
 

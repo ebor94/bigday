@@ -29,25 +29,27 @@ DirectoryIndex index.html
     BrowserMatch ^Mozilla/4\.0[678] no-gzip
     BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
   </IfModule>
-  <IfModule mod_headers.c>
-    Header append Vary Accept-Encoding
-  </IfModule>
 </IfModule>
 
-# Caché (mod_expires): index.html siempre se revalida; el resto, un día.
-# Los archivos de assets/ llevan hash en el nombre: caché larga e inmutable (ver mod_headers abajo).
+# Caché. Todo JS/CSS (y fuentes) de dist está en assets/ con hash en el nombre, así que mod_expires
+# mismo les da un año: el resultado es correcto gane mod_expires o mod_headers (en Apache 2.2 el
+# orden entre ambos no está garantizado). index.html se excluye de forma explícita: siempre se revalida.
+# Las imágenes de img/ no llevan hash: un día.
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresDefault "access plus 1 day"
-  ExpiresByType text/html "access plus 0 seconds"
-  ExpiresByType image/webp "access plus 30 days"
-  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  <FilesMatch "^index\.html$">
+    ExpiresActive Off
+  </FilesMatch>
 </IfModule>
 
 <IfModule mod_headers.c>
-  # index.html (y la raíz /bigDay-encuesta/): sin caché, así un despliegue nuevo se ve de inmediato.
-  <FilesMatch "\.html$">
-    Header set Cache-Control "no-cache, must-revalidate"
+  # index.html (también al pedir /bigDay-encuesta/): sin caché, así un despliegue nuevo se ve de inmediato.
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache"
   </FilesMatch>
 
   # Cabeceras de seguridad.

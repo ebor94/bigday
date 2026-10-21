@@ -7,7 +7,7 @@ La encuesta se publica en **https://losolivoscucuta.com/bigDay-encuesta/**, serv
 - Node 20.19 o superior y `npm install` hecho en la raíz del repo.
 - `rsync` y `bash` (macOS/Linux).
 - El recurso compartido de AppServ montado en `/Volumes/AppServ` (o la ruta que se pase como destino).
-- En Apache (AppServ): `AllowOverride` con `FileInfo`, `Indexes`, `Options` y `Limit` (o `All`) para `www/bigDay-encuesta`, para que se lea el `.htaccess`. Con `AllowOverride None` el sitio funciona, pero sin compresión ni caché; si falta solo `Options`, `Options -Indexes` produce error 500 y hay que ajustar el permiso o quitar esa línea.
+- En Apache (AppServ): `AllowOverride` con `FileInfo` (MIME, cabeceras y caché) y `Options` (`Options -Indexes`), o `All`, para `www/bigDay-encuesta`. Con `AllowOverride None` el `.htaccess` se ignora: el sitio funciona, pero sin compresión ni caché. Si el `.htaccess` usa algo que el `AllowOverride` no permite, Apache responde 500 (ver "Si da error 500").
 - Módulos recomendados (todo está dentro de `<IfModule>`, si falta alguno solo se pierde esa función): `mod_deflate`, `mod_expires`, `mod_headers`, `mod_setenvif`.
 
 ## Cómo está configurado el build
@@ -37,7 +37,15 @@ El script:
 2. Ejecuta `npm run build -w @bigday/web` (con `.env.production`).
 3. Comprueba que `dist/index.html` referencia `/bigDay-encuesta/assets/`, que el bundle contiene la URL de la API de producción y que existe `dist/.htaccess`.
 4. Copia con `rsync` (sin `--delete`), dejando `index.html` para el final.
-5. Solo con `--limpiar`: borra en `assets/` los archivos que ya no están en el build nuevo. No toca nada más.
+5. Solo con `--limpiar`: borra en `assets/` los archivos con nombre hasheado de Vite (`nombre-XXXXXXXX.ext`, 8 caracteres) que no están en el build nuevo; cualquier otro archivo de `assets/` o del destino se deja intacto. Ejecútalo fuera de hora pico: pestañas abiertas con el build anterior aún podrían pedir sus chunks viejos. Sin `--limpiar` nunca se borra nada.
+
+## Si da error 500
+
+Un 500 al abrir el sitio casi siempre es el `.htaccess` (una directiva no permitida por el `AllowOverride` de AppServ). Antes y después de desplegar:
+
+1. Prueba `curl -I https://losolivoscucuta.com/bigDay-encuesta/` y, si da 500, abre el `error.log` de AppServ (`C:\AppServ\Apache2.2\logs\error.log`, según la instalación): indica la directiva y la línea que Apache rechaza ("not allowed here").
+2. Si es `Options -Indexes`: coméntala (`# Options -Indexes`) en el `.htaccess` del servidor y vuelve a probar. No se pierde nada importante: `index.html` ya evita el listado del directorio. Lo mismo para la línea que señale el log (suele ser `AddType`, `Header` o `Expires*` si falta `FileInfo`).
+3. Último recurso: quita el `.htaccess` del servidor. El sitio funciona igual, solo sin compresión, caché ni cabeceras de seguridad. Después pide a quien administra AppServ ajustar `AllowOverride` y vuelve a copiarlo.
 
 ## Verificación tras desplegar
 
@@ -52,9 +60,18 @@ curl -sI -H 'Accept-Encoding: gzip' "https://losolivoscucuta.com/bigDay-encuesta
 # 3) salud de la API
 curl -s https://mantix-api.losolivoscucuta.com:8444/api/bigday/v1/health
 # → {"estado":"ok","bd":"ok"}
+
+# 4) CORS (preflight real del navegador)
+curl -si -X OPTIONS \
+  -H 'Origin: https://losolivoscucuta.com' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type' \
+  https://mantix-api.losolivoscucuta.com:8444/api/bigday/v1/respuestas
 ```
 
-Esperado en (1): `Cache-Control: no-cache, must-revalidate` y las cabeceras `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`. Esperado en (2): `Content-Encoding: gzip` y `Cache-Control: public, max-age=31536000, immutable`.
+Esperado en (4): `HTTP/1.1 204`, `Access-Control-Allow-Origin: https://losolivoscucuta.com` y `Access-Control-Allow-Headers` que incluya `Content-Type` (idealmente también `Access-Control-Allow-Methods` con `POST`). Si falta, el navegador bloqueará el envío aunque la API esté sana: revisar `CORS_ORIGIN` en el `.env` de Mantix.
+
+Esperado en (1): `Cache-Control: no-cache` y las cabeceras `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`. Esperado en (2): `Content-Encoding: gzip` y `Cache-Control: public, max-age=31536000, immutable`.
 
 **Prueba manual en iPhone real** (obligatoria antes de difundir): abrir el enlace desde Safari, comprobar que cargan el logo y las aves, recorrer las 7 preguntas, enviar y ver la pantalla de gracias; después cerrar y volver a abrir (debe decir "ya respondiste"). Repetir con datos móviles. Para no ensuciar los resultados, avisar a Edwin de que se borren las respuestas de prueba o hacerlas con `?src=prueba`.
 

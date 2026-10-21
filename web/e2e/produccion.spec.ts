@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { detenerReloj } from './utilidades'
 
 // Verificación del build de producción servido bajo la subruta real (/bigDay-encuesta/):
@@ -10,12 +10,13 @@ const API_PRODUCCION = 'https://mantix-api.losolivoscucuta.com:8444/api/bigday/v
 const SUBRUTA = '/bigDay-encuesta/'
 const PASO_MS = 1_500
 
-test('build de producción en la subruta: assets 200, logo cargado y POST a la API de producción con origen qr-entrada', async ({ page }) => {
+test('build de producción en la subruta: assets 200, logo cargado y POST a la API de producción con origen qr-entrada', async ({ page, baseURL }) => {
+  const origenWeb = new URL(baseURL!).origin
   const fallos: string[] = []
   const recursos: string[] = []
   page.on('response', (r) => {
     const url = new URL(r.url())
-    if (url.origin !== new URL(page.url() || 'http://localhost:4173').origin) return
+    if (url.origin !== origenWeb) return
     recursos.push(url.pathname)
     if (r.status() >= 400) fallos.push(`${r.status()} ${url.pathname}`)
   })
@@ -74,4 +75,10 @@ test('build de producción en la subruta: assets 200, logo cargado y POST a la A
   expect(peticiones[0]!.url).toBe(`${API_PRODUCCION}/respuestas`)
   expect(peticiones[0]!.metodo).toBe('POST')
   expect(peticiones[0]!.cuerpo).toMatchObject({ origen: 'qr-entrada', p6: 9 })
+})
+
+test('red de seguridad: una petición a la API de producción que la prueba no simula se aborta', async ({ page }) => {
+  await page.goto('./')
+  const resultado = await page.evaluate((url) => fetch(url, { mode: 'no-cors' }).then(() => 'salió', () => 'abortada'), `${API_PRODUCCION}/health`)
+  expect(resultado).toBe('abortada')
 })
