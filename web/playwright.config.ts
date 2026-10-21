@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test'
 // - "iPhone 13"      → WebKit con emulación móvil (touch, DPR 3, 390×664).
 // - "Desktop Chrome" → Chromium 1280×720.
 // Las pruebas funcionales corren en los tres. Las que fijan anchos concretos (320/375/1440 px)
-// y guardan capturas corren solo en "Desktop Chrome" (ver PROYECTO_ANCHOS en e2e/proyectos.ts):
+// y guardan capturas corren solo en "Desktop Chrome" (ver PROYECTO_ANCHOS en e2e/utilidades.ts):
 // en los móviles serían el mismo motor con otro viewport forzado, es decir, duplicadas.
 export default defineConfig({
   testDir: './e2e',

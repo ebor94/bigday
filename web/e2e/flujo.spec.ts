@@ -275,6 +275,57 @@ for (const vista of VISTAS) {
   })
 }
 
+test('320 px sin scroll horizontal en todos los proyectos (incluido WebKit): bienvenida, "Otro", NPS y P7', async ({ page }) => {
+  // Spec §10: ancho mínimo 320 px y Safari iOS 15+. El flujo a 320 px con capturas corre solo en
+  // Desktop Chrome; esta comprobación, sin axe ni capturas, corre también en iPhone 13 (WebKit).
+  const vista = { width: 320, height: 640 }
+  // En móvil emulado (isMobile) un desborde puede ensanchar el viewport de layout en vez de dar
+  // scroll: además de scrollWidth ≤ innerWidth se exige que innerWidth siga siendo 320.
+  const sin320 = async (pantalla: string) => {
+    await sinScrollHorizontal(page, pantalla)
+    expect(await page.evaluate(() => window.innerWidth), `${pantalla}: innerWidth`).toBe(320)
+  }
+  await simularApi(page)
+  await abrir(page, vista)
+  await sin320('320-bienvenida')
+  await page.getByRole('button', { name: 'Comenzar' }).click()
+  await page.clock.runFor(PASO_MS)
+  for (const [i, tecla] of ['a', 'a'].entries()) {
+    await enPreguntaEstable(page, i)
+    await sin320(`320-p${i + 1}`)
+    await page.keyboard.press(tecla)
+    await page.clock.runFor(PASO_MS)
+  }
+  // P3 con "Otro" abierto y texto largo (120 caracteres, el máximo).
+  await enPreguntaEstable(page, 2)
+  await page.getByRole('radio', { name: 'Otro' }).click()
+  const campo = page.getByRole('textbox', { name: 'Escribe tu respuesta' })
+  await campo.fill('Un aula viva para aprender de aves '.repeat(4).slice(0, 120))
+  await expect(page.getByText('120 / 120')).toBeVisible()
+  await sin320('320-p3-otro')
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.clock.runFor(PASO_MS)
+  for (const i of [3, 4]) {
+    await enPreguntaEstable(page, i)
+    await page.keyboard.press('a')
+    await page.clock.runFor(PASO_MS)
+  }
+  // NPS: antes de elegir y con el ave posada sobre el 10 (el número del borde derecho).
+  await enPreguntaEstable(page, 5)
+  await sin320('320-nps')
+  await page.keyboard.press('0')
+  await expect(page.locator('.ave--perched')).toHaveCount(1)
+  await sin320('320-nps-posada')
+  await page.clock.runFor(PASO_MS)
+  await enPreguntaEstable(page, 6)
+  await page.getByRole('textbox').fill('Ven a conocer las aves de Los Olivos, un lugar lleno de vida y de memoria.')
+  await sin320('320-p7')
+  await page.getByRole('button', { name: 'Enviar' }).click()
+  await page.clock.runFor(PASO_MS)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('¡Gracias!')
+  await sin320('320-gracias')
+})
+
 /** Bienvenida → P1…P6 con atajos de teclado (una tecla por pregunta). Queda en P7. */
 async function hastaP7(page: Page, teclas: readonly string[] = ['a', 'a', 'a', 'a', 'a', '7']) {
   await page.getByRole('button', { name: 'Comenzar' }).click()
