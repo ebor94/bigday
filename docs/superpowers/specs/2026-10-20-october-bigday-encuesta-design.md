@@ -147,7 +147,7 @@ Vista para Superset: `vw_bigday_resumen` con columnas derivadas `nps_grupo` (`pr
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `POST` | `/api/respuestas` | Valida con zod y guarda. Idempotente por `uuid` (repetido → 200 sin duplicar). Honeypot `website` vacío obligatorio. Rate limit: 10 req / 10 min por IP. |
+| `POST` | `/api/respuestas` | Valida con zod y guarda. Idempotente por `uuid` (repetido → 200 sin duplicar). Honeypot `website` vacío obligatorio. Rate limit: 10 req / 10 min por IP + hash del user-agent (decisión de Edwin 2026-10-20: evita que una red compartida agote un cupo común). |
 | `GET` | `/api/resultados` | Header `Authorization: Bearer <RESULTS_TOKEN>`. Devuelve totales, distribución por pregunta, NPS, matriz P2×P3, últimas 20 frases de P7. |
 | `GET` | `/api/resultados.csv` | Mismo token. Exporta todas las respuestas con textos legibles. |
 | `GET` | `/api/health` | Estado y conexión a BD. |
