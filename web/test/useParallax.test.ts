@@ -52,6 +52,27 @@ function simularMatchMedia(consultas: Consultas) {
   }))
 }
 
+/** matchMedia mutable: permite disparar `change` como lo haría el navegador. */
+function simularMatchMediaMutable(consultas: Consultas) {
+  const oyentes = new Map<string, Set<() => void>>()
+  vi.stubGlobal('matchMedia', (query: string) => {
+    const set = oyentes.get(query) ?? new Set<() => void>()
+    oyentes.set(query, set)
+    return {
+      get matches() {
+        return consultas[query] ?? false
+      },
+      media: query,
+      addEventListener: (_tipo: string, fn: () => void) => set.add(fn),
+      removeEventListener: (_tipo: string, fn: () => void) => set.delete(fn),
+    }
+  })
+  return (query: string, matches: boolean) => {
+    consultas[query] = matches
+    for (const fn of oyentes.get(query) ?? []) fn()
+  }
+}
+
 function montar() {
   const Prueba = defineComponent({
     setup() {
@@ -121,5 +142,29 @@ describe('useParallax', () => {
     const { app } = montar()
     app.unmount()
     expect(eventosParallax(quitar)).toEqual(['pointermove'])
+  })
+
+  it('reacciona en vivo al cambio de prefers-reduced-motion', () => {
+    const cambiar = simularMatchMediaMutable({ '(pointer: fine)': true })
+    vi.stubGlobal('innerWidth', 1000)
+    vi.stubGlobal('innerHeight', 800)
+    const { capa } = montar()
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 0, clientY: 0 }))
+    expect(capa.style.transform).not.toBe('')
+
+    // Pasa a reduce: se retiran los listeners y se limpian los transforms en línea.
+    agregar.mockClear()
+    cambiar('(prefers-reduced-motion: reduce)', true)
+    expect(eventosParallax(quitar)).toEqual(['pointermove'])
+    expect(eventosParallax(agregar)).toEqual([])
+    expect(capa.style.transform).toBe('')
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 0, clientY: 0 }))
+    expect(capa.style.transform).toBe('')
+
+    // Vuelve a no-reduce: se vuelve a escuchar el puntero.
+    cambiar('(prefers-reduced-motion: reduce)', false)
+    expect(eventosParallax(agregar)).toEqual(['pointermove'])
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 1000, clientY: 800 }))
+    expect(capa.style.transform).toBe(`translate3d(${-PARALLAX_MAX_PX}px, ${-PARALLAX_MAX_PX}px, 0)`)
   })
 })

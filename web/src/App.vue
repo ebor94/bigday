@@ -79,6 +79,7 @@ const opciones = p1?.options ?? []
   flex-direction: column;
   align-items: center;
   gap: var(--space-6);
+  min-height: 100vh;
   min-height: 100dvh;
   padding: var(--space-7) var(--gutter) var(--space-8);
 }
@@ -180,7 +181,8 @@ const opciones = p1?.options ?? []
   background: var(--c-magenta);
   box-shadow: var(--shadow-button);
   color: var(--c-white);
-  /* Blanco sobre magenta ≈ 4,46:1: solo apto como texto grande (≥ 18,66 px en negrita). */
+  /* Blanco sobre magenta ≈ 4,46:1: solo apto como texto grande (≥ 18,66 px en negrita).
+     --fs-lg = 1.375rem ≈ 22 px (rem = 16 px). Mantener ≥ 1.1875rem (19 px) y 700. */
   font-family: var(--font-title);
   font-weight: 700;
   font-size: var(--fs-lg);

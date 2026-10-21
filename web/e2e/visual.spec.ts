@@ -11,6 +11,7 @@ const PREFIJO = process.env.CAPTURAS_PREFIJO ?? 'visual'
 mkdirSync(DIR, { recursive: true })
 
 const VISTAS = [
+  { nombre: '320', width: 320, height: 640 },
   { nombre: '375', width: 375, height: 812 },
   { nombre: '1440', width: 1440, height: 900 },
 ] as const
@@ -60,13 +61,20 @@ test.describe('con prefers-reduced-motion', () => {
   test('375 px sin parallax', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await prepararPagina(page)
-    await page.mouse.wheel(0, 400)
+    // Scroll programático instantáneo (dispara eventos `scroll`); la rueda es suave y
+    // asíncrona y seguía moviendo la página después de volver a 0.
+    await page.evaluate(() => window.scrollTo({ top: 400, behavior: 'instant' }))
+    await page.waitForFunction(() => window.scrollY > 0)
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
     const transformaciones = await page.$$eval('[data-profundidad]', (capas) =>
       capas.map((c) => getComputedStyle(c).transform),
     )
     expect(transformaciones.every((t) => t === 'none')).toBe(true)
     await sinScrollHorizontal(page)
-    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+    // Espera a que el scroll vuelva a 0 y a que se pinte un frame antes de capturar.
+    await page.waitForFunction(() => window.scrollY === 0)
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
     await page.screenshot({ path: join(DIR, `${PREFIJO}-375-reduced.png`), fullPage: true })
   })
 })

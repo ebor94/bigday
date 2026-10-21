@@ -22,6 +22,7 @@ body {
   background-color: var(--c-paper);
   /* Respaldo bajo el fondo fijo (p. ej. al colapsar la barra del navegador móvil). */
   background-image: linear-gradient(180deg, var(--c-sky) 0%, var(--c-paper) 45%, rgb(127 166 80 / 0.28) 100%);
+  background-repeat: no-repeat;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
