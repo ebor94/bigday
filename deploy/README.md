@@ -8,7 +8,32 @@ La encuesta se publica en **https://losolivoscucuta.com/bigDay-encuesta/**, serv
 - `rsync` y `bash` (macOS/Linux).
 - El recurso compartido de AppServ montado en `/Volumes/AppServ` (o la ruta que se pase como destino).
 - En Apache (AppServ): `AllowOverride` con `FileInfo` (MIME, cabeceras y caché) y `Options` (`Options -Indexes`), o `All`, para `www/bigDay-encuesta`. Con `AllowOverride None` el `.htaccess` se ignora: el sitio funciona, pero sin compresión ni caché. Si el `.htaccess` usa algo que el `AllowOverride` no permite, Apache responde 500 (ver "Si da error 500").
-- Módulos recomendados (todo está dentro de `<IfModule>`, si falta alguno solo se pierde esa función): `mod_deflate`, `mod_expires`, `mod_headers`, `mod_setenvif`.
+- Módulos recomendados (todo está dentro de `<IfModule>`, si falta alguno solo se pierde esa función): `mod_rewrite` (redirección www, ver abajo), `mod_deflate`, `mod_expires`, `mod_headers`, `mod_setenvif`.
+
+## Redirección www → sin www (CORS)
+
+La API solo acepta por CORS el origen `https://losolivoscucuta.com` (allowlist `CORS_ORIGIN` de Mantix). Si alguien abre `https://www.losolivoscucuta.com/bigDay-encuesta/`, la página carga pero **todo envío falla por CORS** (la respuesta queda pendiente en el dispositivo y nunca llega). Por eso el `.htaccess` redirige con 301:
+
+```apache
+<IfModule mod_rewrite.c>
+  Options +FollowSymLinks
+  RewriteEngine On
+  RewriteCond %{HTTP_HOST} ^www\.losolivoscucuta\.com$ [NC]
+  RewriteRule ^(.*)$ https://losolivoscucuta.com/bigDay-encuesta/$1 [R=301,L]
+</IfModule>
+```
+
+- En un `.htaccess` la ruta que ve `RewriteRule` es relativa al directorio (sin `bigDay-encuesta/`), por eso el destino la antepone. La query (`?src=…`) se conserva sola.
+- `Options +FollowSymLinks` es obligatorio: sin él (si el `httpd.conf` no lo da), Apache responde **403 a todo el sitio** ("Options FollowSymLinks and SymLinksIfOwnerMatch are both off, so the RewriteRule directive is also forbidden"). Necesita `AllowOverride Options`, igual que `Options -Indexes`.
+- Sin `mod_rewrite` el bloque se ignora (no da 500): el sitio sigue en `www` sin redirigir. Verificado en Apache 2.4 local con y sin el módulo (`httpd -t`, `curl -H 'Host: www.losolivoscucuta.com'`).
+- Comprobar en producción:
+
+```bash
+curl -sI 'https://www.losolivoscucuta.com/bigDay-encuesta/?src=whatsapp' | grep -iE '^(HTTP|location)'
+# → HTTP/1.1 301 … y Location: https://losolivoscucuta.com/bigDay-encuesta/?src=whatsapp
+```
+
+- **Alternativa** (si AppServ no tiene `mod_rewrite` o la redirección no se puede activar): añadir el origen www a la allowlist de Mantix y reiniciar la API: `CORS_ORIGIN=https://losolivoscucuta.com,https://www.losolivoscucuta.com` en el `.env` de Mantix (ojo: si `CORS_ORIGIN` se define, sustituye a la lista por defecto; incluir todos los orígenes que Mantix ya usa).
 
 ## Cómo está configurado el build
 
@@ -73,7 +98,35 @@ Esperado en (4): `HTTP/1.1 204`, `Access-Control-Allow-Origin: https://losolivos
 
 Esperado en (1): `Cache-Control: no-cache` y las cabeceras `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`. Esperado en (2): `Content-Encoding: gzip` y `Cache-Control: public, max-age=31536000, immutable`.
 
-**Prueba manual en iPhone real** (obligatoria antes de difundir): abrir el enlace desde Safari, comprobar que cargan el logo y las aves, recorrer las 7 preguntas, enviar y ver la pantalla de gracias; después cerrar y volver a abrir (debe decir "ya respondiste"). Repetir con datos móviles. Para no ensuciar los resultados, avisar a Edwin de que se borren las respuestas de prueba o hacerlas con `?src=prueba`.
+**Prueba manual en iPhone real** (obligatoria antes de difundir): abrir el enlace desde Safari, comprobar que cargan el logo y las aves, recorrer las 7 preguntas, enviar y ver la pantalla de gracias; después cerrar y volver a abrir (debe decir "ya respondiste"). Repetir con datos móviles. Hacerla **también en un iPhone con iOS 15** (o el más antiguo disponible): las pruebas e2e usan el WebKit de Playwright, que es mucho más reciente que el Safari de iOS 15, así que ese caso solo se cubre a mano (transiciones, `backdrop-filter`, scroll al cambiar de pregunta, envío). Hacer las pruebas con `?src=prueba` y borrarlas después (ver "Borrar las respuestas de prueba").
+
+## Borrar las respuestas de prueba
+
+Antes de difundir, Edwin (con un usuario de BD con `DELETE`, no el de la API) borra lo enviado con `?src=prueba`:
+
+```sql
+-- Primero contar y revisar qué se va a borrar:
+SELECT COUNT(*), MIN(created_at), MAX(created_at) FROM serfuweb.bigday_respuestas WHERE origen = 'prueba';
+-- Luego borrar:
+DELETE FROM serfuweb.bigday_respuestas WHERE origen = 'prueba';
+```
+
+**Revisar el `WHERE` dos veces antes de ejecutar**: un `DELETE` sin él (o con otro valor) borra respuestas reales y no hay papelera. Si alguna prueba se hizo sin `?src=prueba`, identificarla por `uuid` o por fecha y borrarla con un `WHERE` igual de explícito.
+
+## Rollback
+
+**Front** (AppServ): volver a desplegar el commit anterior con el mismo script. Como el script copia sin `--delete`, los assets del build anterior siguen en el servidor y basta con restaurar su `index.html` (el script lo copia al final):
+
+```bash
+git log --oneline -5                 # elegir el commit bueno
+git checkout <commit-bueno>
+deploy/desplegar-front.sh            # sin --limpiar
+git checkout feat/encuesta-bigday    # volver a la rama
+```
+
+No usar `--limpiar` durante un rollback (borraría los assets del build que se acaba de retirar, que pestañas abiertas aún podrían pedir).
+
+**Backend** (Mantix): revertir el merge del módulo en `main` (`git revert -m 1 <merge>` y push a `origin/main`, que es lo que descarga el servidor) y redesplegar con `deploy-mantix` como de costumbre. La tabla `bigday_respuestas` y la vista pueden quedarse: no molestan a Mantix y conservan las respuestas ya recibidas. Mientras el backend esté revertido, los envíos quedan pendientes en cada dispositivo y se reintentan solos (no se pierden: el front solo descarta ante 400, 413 o 422).
 
 ## Enlaces y QR por origen
 
