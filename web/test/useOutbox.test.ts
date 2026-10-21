@@ -161,6 +161,21 @@ describe('enviar: rechazos -> sin reintento', () => {
     expect(outboxDe(a)).toEqual([])
   })
 
+  it.each([401, 403, 404, 422])('%i es definitivo: rechazada y fuera de la bandeja', async (status) => {
+    const a = almacen({ [CLAVE_OUTBOX]: JSON.stringify([respuesta(U1)]) })
+    const o = useOutbox({ fetch: vi.fn().mockResolvedValue(json(status, { error: 'no' })), storage: a, baseUrl: BASE })
+    const r = await o.enviar(respuesta(U1))
+    expect(r.estado).toBe('rechazada')
+    expect(outboxDe(a)).toEqual([])
+  })
+
+  it('408 sigue siendo pendiente', async () => {
+    const a = almacen()
+    const o = useOutbox({ fetch: vi.fn().mockResolvedValue(new Response('', { status: 408 })), storage: a, baseUrl: BASE })
+    expect((await o.enviar(respuesta(U1))).estado).toBe('pendiente')
+    expect(outboxDe(a)).toHaveLength(1)
+  })
+
   it('un 400 no se reintenta en reintentarPendientes', async () => {
     const a = almacen()
     const fetchMock = vi.fn().mockResolvedValue(json(400, { error: 'mal' }))
@@ -189,6 +204,38 @@ describe('reintentarPendientes', () => {
     await o.reintentarPendientes()
     expect(outboxDe(a).map((x) => x.uuid)).toEqual([U1])
     expect(o.yaRespondio.value).toBe(false)
+  })
+
+  it('una entrada guardada que da 400 se elimina y la siguiente se sigue enviando', async () => {
+    const a = almacen({ [CLAVE_OUTBOX]: JSON.stringify([respuesta(U1), respuesta(U2)]) })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json(400, { error: 'mal' }))
+      .mockResolvedValueOnce(json(201, { ok: true }))
+    const o = useOutbox({ fetch: fetchMock, storage: a, baseUrl: BASE })
+    await o.reintentarPendientes()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(outboxDe(a)).toEqual([])
+    expect(o.yaRespondio.value).toBe(true)
+  })
+
+  it('se detiene en el primer pendiente y deja intactas las siguientes', async () => {
+    const a = almacen({ [CLAVE_OUTBOX]: JSON.stringify([respuesta(U1), respuesta(U2)]) })
+    const fetchMock = vi.fn().mockResolvedValue(json(503, { error: 'x' }))
+    const o = useOutbox({ fetch: fetchMock, storage: a, baseUrl: BASE })
+    await o.reintentarPendientes()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(outboxDe(a).map((x) => x.uuid)).toEqual([U1, U2])
+  })
+
+  it('enviar y reintentarPendientes del mismo uuid en paralelo terminan sin el uuid en la bandeja y con la marca', async () => {
+    const a = almacen({ [CLAVE_OUTBOX]: JSON.stringify([respuesta(U1)]) })
+    const fetchMock = vi.fn().mockResolvedValue(json(201, { ok: true }))
+    const o = useOutbox({ fetch: fetchMock, storage: a, baseUrl: BASE })
+    await Promise.all([o.reintentarPendientes(), o.enviar(respuesta(U1))])
+    expect(outboxDe(a)).toEqual([])
+    expect(a.datos.get(CLAVE_RESPONDIDA)).toBe('2026-10-21T15:00:00.000Z')
+    expect(o.pendientes.value).toBe(0)
   })
 
   it('con la bandeja vacía no hace peticiones', async () => {

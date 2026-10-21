@@ -4,7 +4,7 @@ import type { Respuesta } from '@bigday/shared'
 // Envío robusto de la respuesta con bandeja de salida (reintento offline).
 // - 201 / 200 (uuid duplicado) → éxito: marca "ya respondió" y saca el uuid de la bandeja.
 // - Red, timeout (~10 s), 429, 5xx → 'pendiente': queda en la bandeja (`bigday:outbox`).
-// - 400 / 413 → 'rechazada': no se reintenta (se descarta de la bandeja).
+// - 4xx definitivos (400, 413, 401, 403, 404, 422…; no 408 ni 429) → 'rechazada': no se reintenta (se descarta de la bandeja).
 // - Todo acceso a localStorage va en try/catch; si está bloqueado la bandeja vive en memoria.
 // - Si se usa dentro de un componente, `reintentarPendientes()` se registra solo en `onMounted`
 //   (opción `reintentarAlMontar: false` para desactivarlo). Fuera de un componente hay que llamarlo.
@@ -139,7 +139,8 @@ export function useOutbox(opciones: OpcionesOutbox = {}) {
         signal: control.signal,
       })
       if (res.status === 201 || res.status === 200) return { estado: 'enviada' }
-      if (res.status === 400 || res.status === 413) return { estado: 'rechazada', mensaje: await mensajeDe(res) }
+      // Cualquier 4xx salvo 408 (timeout) y 429 (rate limit) es definitivo: reintentar no lo arregla.
+      if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) return { estado: 'rechazada', mensaje: await mensajeDe(res) }
       return { estado: 'pendiente' } // 429, 5xx y cualquier otro: se reintenta más tarde
     } catch {
       return { estado: 'pendiente' } // red caída o timeout
