@@ -25,13 +25,19 @@ const COMPRIMIBLES = new Set(['.html', '.js', '.css', '.svg', '.json', '.txt'])
 /**
  * Sirve `raiz` en `puerto` (0 = libre) bajo la subruta `prefijo` (p. ej. '/bigDay-encuesta/',
  * como en producción; por defecto '/'). Devuelve { url, cerrar }.
- * Fuera del prefijo → 404. Rutas desconocidas sin extensión → index.html (SPA).
+ * Fuera del prefijo → 404. Ruta con codificación % inválida → 400. Rutas desconocidas sin extensión → index.html (SPA).
  */
 export function servir(raiz, puerto = 0, prefijo = '/') {
   const base = resolve(raiz)
   const pref = `/${prefijo.replace(/^\/+|\/+$/g, '')}`.replace(/^\/$/, '')
   const servidor = createServer((req, res) => {
-    const completa = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)
+    let completa
+    try {
+      completa = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)
+    } catch {
+      res.writeHead(400).end() // codificación % inválida: no debe tumbar el servidor
+      return
+    }
     if (pref && completa !== pref && !completa.startsWith(`${pref}/`)) {
       res.writeHead(404).end()
       return
