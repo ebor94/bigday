@@ -5,10 +5,16 @@ import { join, resolve } from 'node:path'
 // Aves animadas: rendimiento (solo transform/opacity, tope de 12), reduced-motion
 // y capturas deterministas con una bandada a mitad de vuelo.
 // Determinismo: Math.random con semilla fija y reloj de Playwright (los setTimeout del
-// ambiente solo avanzan cuando la prueba lo pide). Las animaciones WAAPI se pausan en
+// ambiente, el avance automático y las transiciones GSAP solo avanzan cuando la prueba lo pide).
+// Las pruebas trabajan sobre P1 (opciones) y P6 (NPS, ave posada sobre el número elegido). Las animaciones WAAPI se pausan en
 // un currentTime fijo antes de capturar.
 const DIR = resolve(process.env.CAPTURAS_DIR ?? 'test-results/capturas')
 mkdirSync(DIR, { recursive: true })
+
+/** Aves de la bandada que despega al elegir una opción (ChoiceQuestion). */
+const BANDADA = 4
+/** Avance automático (600 ms) + transición entre pantallas, con margen. */
+const PASO_MS = 1_500
 
 const PROPIEDADES_PERMITIDAS = new Set(['offset', 'computedOffset', 'easing', 'composite', 'transform', 'opacity'])
 
@@ -27,8 +33,14 @@ async function preparar(page: Page, vista: { width: number; height: number }) {
   await page.clock.install()
   await page.setViewportSize(vista)
   await page.goto('/')
+  // Reloj detenido: temporizadores (ambiente, avance automático) y GSAP solo avanzan con runFor.
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 50)
   await page.evaluate(() => document.fonts.ready)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  // De la bienvenida a P1 (opciones).
+  await page.getByRole('button', { name: 'Comenzar' }).click()
+  await page.clock.runFor(PASO_MS)
+  await expect(page.locator('.opcion')).toHaveCount(4)
   // Registra el máximo de aves presentes en el DOM en cualquier momento.
   await page.evaluate(() => {
     const w = window as unknown as { __maxAves: number }
@@ -60,6 +72,17 @@ async function congelar(page: Page, msBandada: number, fraccionAmbiente: number)
   )
 }
 
+/** Desde P1 llega a P6 con atajos de teclado y elige `valor` (el ave se posa sobre él). */
+async function irANpsYElegir(page: Page, valor: number) {
+  for (let i = 0; i < 5; i++) {
+    await page.keyboard.press('a')
+    await page.clock.runFor(PASO_MS)
+  }
+  await expect(page.getByRole('radio')).toHaveCount(10)
+  await page.keyboard.press(String(valor % 10))
+  return page.getByRole('radio', { name: String(valor), exact: true })
+}
+
 async function sinScrollHorizontal(page: Page) {
   const m = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -70,8 +93,7 @@ async function sinScrollHorizontal(page: Page) {
 
 test('las animaciones solo tocan transform/opacity y nunca hay más de 12 aves', async ({ page }) => {
   await preparar(page, { width: 375, height: 812 })
-  // Ave posada en "Comenzar" y primera oleada ambiental.
-  await expect(page.locator('.ave--perched')).toHaveCount(1)
+  // Primera oleada ambiental (sin opción elegida no hay avance automático).
   await page.clock.runFor(3_000)
   expect(await page.locator('.ave--ambient').count()).toBeGreaterThanOrEqual(2)
 
@@ -104,7 +126,7 @@ test('pausa los vuelos con document.hidden y los reanuda al volver', async ({ pa
   await preparar(page, { width: 375, height: 812 })
   await page.clock.runFor(3_000)
   await page.locator('.opcion').first().click()
-  await expect(page.locator('.ave--flock')).toHaveCount(5)
+  await expect(page.locator('.ave--flock')).toHaveCount(BANDADA)
   const estados = async (oculta: boolean) => {
     await page.evaluate((oculta) => {
       Object.defineProperty(document, 'hidden', { configurable: true, get: () => oculta })
@@ -124,7 +146,7 @@ test('pausa los vuelos con document.hidden y los reanuda al volver', async ({ pa
     ])
   }
   expect(await estados(true)).toEqual(['paused'])
-  expect(await page.locator('.ave--flock').count()).toBe(5)
+  expect(await page.locator('.ave--flock').count()).toBe(BANDADA)
   expect(await estados(false)).toEqual(['running'])
 })
 
@@ -153,19 +175,26 @@ test('las ambientales vuelan bajo el contenido; bandada y posada, encima', async
       ),
     }
   })
-  expect(capas).toMatchObject({ acuarela: 0, fondo: 0, contenido: 1, frente: 2, ambientalesEnFrente: 0, posadaEnFrente: 1 })
+  expect(capas).toMatchObject({ acuarela: 0, fondo: 0, contenido: 1, frente: 2, ambientalesEnFrente: 0 })
   expect(capas.ambientalesEnFondo).toBeGreaterThanOrEqual(2)
-  expect(capas.bandadaEnFrente).toBe(5)
+  expect(capas.bandadaEnFrente).toBe(BANDADA)
   expect(capas.fondoTrasAcuarela).toBe(true)
   await sinScrollHorizontal(page)
+
+  // El ave posada (NPS) también va en la capa frontal.
+  await page.clock.runFor(PASO_MS)
+  await irANpsYElegir(page, 7)
+  await expect(page.locator('.capa-aves--frente .ave--perched')).toHaveCount(1)
+  await expect(page.locator('.capa-aves--fondo .ave--perched')).toHaveCount(0)
 })
 
 test('el vuelo no provoca layout por frame (métricas CDP)', async ({ page }) => {
   await preparar(page, { width: 1440, height: 900 })
   await page.locator('.opcion').first().click()
-  await expect(page.locator('.ave--flock')).toHaveCount(5)
+  await expect(page.locator('.ave--flock')).toHaveCount(BANDADA)
   // Deja que se monten las aves y arranquen los vuelos (tiempo real: WAAPI no usa el reloj falso).
-  await page.waitForTimeout(150)
+  // También termina el pulso del check de la opción elegida (420 ms, microanimación única).
+  await page.waitForTimeout(500)
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('Performance.enable')
   const medir = async () => {
@@ -192,7 +221,7 @@ for (const vista of [
     await preparar(page, vista)
     await page.clock.runFor(3_000) // primera oleada ambiental
     await page.locator('.opcion').nth(1).click()
-    await expect(page.locator('.ave--flock')).toHaveCount(5)
+    await expect(page.locator('.ave--flock')).toHaveCount(BANDADA)
     await congelar(page, 700, 0.35)
     await sinScrollHorizontal(page)
     await page.screenshot({ path: join(DIR, `tarea7-${vista.nombre}-bandada.png`) })
@@ -206,6 +235,9 @@ test.describe('con prefers-reduced-motion', () => {
     await preparar(page, { width: 375, height: 812 })
     await page.clock.runFor(60_000)
     await page.locator('.opcion').first().click()
+    expect(await page.locator('.ave--volando').count()).toBe(0)
+    await page.clock.runFor(PASO_MS)
+    const ocho = await irANpsYElegir(page, 8)
     await expect(page.locator('.ave--perched')).toHaveCount(1)
     expect(await page.locator('.ave--volando').count()).toBe(0)
     const vuelos = await page.evaluate(
@@ -215,16 +247,19 @@ test.describe('con prefers-reduced-motion', () => {
     const ala = await page.locator('.ave--perched .ave-sprite__ala').evaluate((el) => getComputedStyle(el).animationName)
     expect(ala).toBe('none')
     await sinScrollHorizontal(page)
-    await page.locator('.boton-primario').scrollIntoViewIfNeeded()
-    // El ave posada sigue al botón tras el scroll: su centro queda sobre el borde superior.
-    await expect
-      .poll(async () => {
-        const ave = await page.locator('.ave--perched').boundingBox()
-        const boton = await page.locator('.boton-primario').boundingBox()
-        if (!ave || !boton) return Infinity
-        return Math.abs(ave.y + ave.height / 2 - (boton.y - 10))
-      })
-      .toBeLessThan(2)
+    // El ave posada sigue al número tras el scroll: su centro queda sobre el borde superior.
+    const centrada = async () => {
+      const ave = await page.locator('.ave--perched').boundingBox()
+      const boton = await ocho.boundingBox()
+      if (!ave || !boton) return Infinity
+      return Math.max(
+        Math.abs(ave.y + ave.height / 2 - (boton.y - 10)),
+        Math.abs(ave.x + ave.width / 2 - (boton.x + boton.width / 2)),
+      )
+    }
+    await expect.poll(centrada).toBeLessThan(2)
+    await page.evaluate(() => window.scrollBy({ top: 120, behavior: 'instant' }))
+    await expect.poll(centrada).toBeLessThan(2)
     await page.screenshot({ path: join(DIR, 'tarea7-375-reduced.png') })
   })
 })

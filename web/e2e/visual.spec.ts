@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
-// Verificación visual de la identidad base: capturas a 375 px y 1440 px,
+// Verificación visual de la identidad base (pantalla de bienvenida): capturas a 375 px y 1440 px,
 // sin scroll horizontal y sin violaciones de contraste (axe).
 // Las capturas van a CAPTURAS_DIR (por defecto test-results/capturas, ignorado por git).
 const DIR = resolve(process.env.CAPTURAS_DIR ?? 'test-results/capturas')
@@ -20,6 +20,13 @@ async function prepararPagina(page: Page) {
   await page.goto('/')
   await page.evaluate(() => document.fonts.ready)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  // El mosquero de la bienvenida llega volando (animación CSS en tiempo real): se espera a
+  // que se pose para que no tape el texto mientras axe mide.
+  await page.evaluate(() =>
+    Promise.all(
+      [...document.querySelectorAll('.hero__ave')].flatMap((el) => el.getAnimations().map((a) => a.finished)),
+    ),
+  )
 }
 
 async function sinScrollHorizontal(page: Page) {

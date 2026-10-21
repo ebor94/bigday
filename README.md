@@ -19,6 +19,10 @@ Monorepo con npm workspaces:
 2. Tras cualquier cambio en `shared/src/survey.config.ts`: `npm run sync:backend` y commitea el archivo generado en Mantix.
 3. `npm run sync:backend -- --check` comprueba que la copia esté al día. El test de contrato (`shared/test/contrato-backend.test.ts`) hace lo mismo y además carga la copia; se omite si el archivo no existe.
 
+## Pendientes
+
+- **TODO (Edwin): imagen hero del Mosquero Bermellón.** Exportar la ilustración del afiche a WebP (≤ 150 KB) y guardarla en `web/public/img/mosquero.webp`. La bienvenida la usa automáticamente en cuanto existe; mientras tanto muestra el ave SVG propia (`BirdSprite`) como reemplazo, sin romper el build.
+
 ## Requisitos
 
 - Node 20.19 o superior

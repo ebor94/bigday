@@ -17,8 +17,9 @@
   --surface-glass: rgb(255 255 255 / 0.74);
   --surface-glass-solid: rgb(251 248 241 / 0.96); /* respaldo sin backdrop-filter */
   --surface-option: var(--c-white); /* opaca: el texto de las opciones no depende del fondo */
-  /* Brillo interior sutil de la tarjeta, como papel húmedo. */
-  --card-gloss: linear-gradient(160deg, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0) 45%);
+  /* Brillo interior sutil de la tarjeta, como papel húmedo. Es una sombra interior y no un
+     degradado de fondo: así axe puede medir el contraste del texto sobre la tarjeta. */
+  --card-gloss: inset 0 1px 0 rgb(255 255 255 / 0.9), inset 12px 28px 48px -28px rgb(255 255 255 / 0.75);
   --border-soft: rgb(13 74 90 / 0.14);
   --border-option: rgb(13 74 90 / 0.22);
 

@@ -31,14 +31,14 @@ defineSlots<{
   border: 1px solid rgb(255 255 255 / 0.7);
   border-radius: var(--radius-organic);
   /* Respaldo sólido: sin backdrop-filter el texto mantiene contraste AA. */
-  background: var(--card-gloss), var(--surface-glass-solid);
-  box-shadow: var(--shadow-card);
+  background: var(--surface-glass-solid);
+  box-shadow: var(--card-gloss), var(--shadow-card);
   color: var(--c-ink);
 }
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .question-card {
-    background: var(--card-gloss), var(--surface-glass);
+    background: var(--surface-glass);
     -webkit-backdrop-filter: blur(16px) saturate(1.15);
     backdrop-filter: blur(16px) saturate(1.15);
   }

@@ -1,0 +1,86 @@
+/* Controles compartidos por las pantallas de la encuesta. */
+
+/* Botón principal (magenta). Blanco sobre magenta ≈ 4,46:1: solo apto como texto grande
+   (≥ 18,66 px en negrita). --fs-lg = 1.375rem ≈ 22 px. Mantener ≥ 1.1875rem (19 px) y 700. */
+.boton-primario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 10rem;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-6);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--c-magenta);
+  box-shadow: var(--shadow-button);
+  color: var(--c-white);
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: var(--fs-lg);
+  letter-spacing: 0.01em;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+/* Botón secundario (teal): blanco sobre #0D4A5A ≈ 9,6:1, apto para cualquier tamaño. */
+.boton-secundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--c-teal-900);
+  color: var(--c-white);
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+/* "Atrás": contorno discreto, tinta sobre blanco. */
+.boton-atras {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--border-option);
+  border-radius: var(--radius-pill);
+  background: var(--c-white);
+  color: var(--c-teal-900);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+/* Enlace discreto con aspecto de texto subrayado. */
+.boton-enlace {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--c-teal-900);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:is(.boton-primario, .boton-secundario, .boton-atras):hover {
+  transform: translateY(-2px);
+}
+
+:is(.boton-primario, .boton-secundario, .boton-atras):active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.boton-primario svg,
+.boton-secundario svg,
+.boton-atras svg {
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+}
