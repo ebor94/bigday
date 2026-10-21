@@ -2,16 +2,39 @@
 // DEMO TEMPORAL (Tarea 6): muestra la identidad visual base.
 // La Tarea 9 reemplaza este componente por las pantallas reales de la encuesta.
 // No se muestra el enunciado de P1: los títulos de las preguntas están pendientes (Edwin).
+// Tarea 7: capa de aves, vuelos ambientales, bandada al elegir una opción y ave posada en "Comenzar".
 import { QUESTIONS } from '@bigday/shared'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import BirdLayer from './components/BirdLayer.vue'
 import QuestionCard from './components/QuestionCard.vue'
 import WatercolorBackground from './components/WatercolorBackground.vue'
+import { useBirds } from './composables/useBirds'
 
 const p1 = QUESTIONS.find((q) => q.id === 'p1')
 const opciones = p1?.options ?? []
+
+const aves = useBirds()
+const botonComenzar = ref<HTMLButtonElement | null>(null)
+let liberarPosada: (() => void) | null = null
+
+function alElegir(evento: MouseEvent) {
+  if (evento.currentTarget instanceof Element) aves.launchFlock(evento.currentTarget, 5)
+}
+
+onMounted(() => {
+  aves.startAmbient()
+  if (botonComenzar.value) liberarPosada = aves.perchAt(botonComenzar.value, { color: 'vermilion' })
+})
+
+onBeforeUnmount(() => {
+  liberarPosada?.()
+  aves.stopAmbient()
+})
 </script>
 
 <template>
   <WatercolorBackground />
+  <BirdLayer />
 
   <main class="demo">
     <header class="marca">
@@ -51,18 +74,24 @@ const opciones = p1?.options ?? []
         <li
           v-for="opcion in opciones"
           :key="opcion.code"
-          class="opcion"
         >
-          <span
-            class="opcion__letra"
-            aria-hidden="true"
-          >{{ opcion.code }}</span>
-          <span class="opcion__texto">{{ opcion.label }}</span>
+          <button
+            type="button"
+            class="opcion"
+            @click="alElegir"
+          >
+            <span
+              class="opcion__letra"
+              aria-hidden="true"
+            >{{ opcion.code }}</span>
+            <span class="opcion__texto">{{ opcion.label }}</span>
+          </button>
         </li>
       </ul>
     </QuestionCard>
 
     <button
+      ref="botonComenzar"
       type="button"
       class="boton-primario"
     >
@@ -147,6 +176,8 @@ const opciones = p1?.options ?? []
 .opcion {
   display: flex;
   align-items: center;
+  width: 100%;
+  text-align: left;
   gap: var(--space-3);
   min-height: 56px;
   padding: var(--space-3) var(--space-4);

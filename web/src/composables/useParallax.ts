@@ -1,4 +1,5 @@
-import { onBeforeUnmount, onMounted, type Ref } from 'vue'
+import { onBeforeUnmount, onMounted, watch, type Ref } from 'vue'
+import { useReducedMotion } from './useReducedMotion'
 
 // Parallax ligero para las capas de follaje del fondo.
 // - Escritorio (puntero fino): las capas se desplazan en sentido contrario al mouse.
@@ -41,12 +42,12 @@ export function desplazamientoScroll(scrollY: number, profundidad: number): Desp
   return { x: 0, y: -Math.min(Math.max(scrollY, 0) * FACTOR_SCROLL * profundidad, tope) + 0 }
 }
 
-const CONSULTA_MOVIMIENTO = '(prefers-reduced-motion: reduce)'
 const CONSULTA_PUNTERO = '(pointer: fine)'
 
 export function useParallax(raiz: Ref<HTMLElement | null>): void {
   let limpiar: (() => void) | null = null
-  let mqlMovimiento: MediaQueryList | null = null
+  let montado = false
+  const reducido = useReducedMotion()
   let mqlPuntero: MediaQueryList | null = null
 
   function capas(): HTMLElement[] {
@@ -64,7 +65,7 @@ export function useParallax(raiz: Ref<HTMLElement | null>): void {
     limpiar?.()
     limpiar = null
 
-    if (!mqlMovimiento || mqlMovimiento.matches) {
+    if (!mqlPuntero || reducido.value) {
       for (const capa of capas()) capa.style.transform = ''
       return
     }
@@ -104,17 +105,21 @@ export function useParallax(raiz: Ref<HTMLElement | null>): void {
 
   onMounted(() => {
     if (typeof window.matchMedia !== 'function') return
-    mqlMovimiento = window.matchMedia(CONSULTA_MOVIMIENTO)
     mqlPuntero = window.matchMedia(CONSULTA_PUNTERO)
-    mqlMovimiento.addEventListener('change', activar)
     mqlPuntero.addEventListener('change', activar)
+    montado = true
     activar()
   })
 
   onBeforeUnmount(() => {
     limpiar?.()
     limpiar = null
-    mqlMovimiento?.removeEventListener('change', activar)
+    montado = false
     mqlPuntero?.removeEventListener('change', activar)
   })
+
+  // Reacciona en vivo al cambio de prefers-reduced-motion (síncrono: sin esperar al siguiente tick).
+  watch(reducido, () => {
+    if (montado) activar()
+  }, { flush: 'sync' })
 }
