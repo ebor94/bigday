@@ -40,7 +40,7 @@ curl -sI 'https://www.losolivoscucuta.com/bigDay-encuesta/?src=whatsapp' | grep 
 - `web/vite.config.ts`: `base: '/bigDay-encuesta/'` (absoluta; las imágenes de `public/img/` se resuelven con `BASE_URL`).
 - `web/.env.production`: `VITE_API_BASE=https://mantix-api.losolivoscucuta.com:8444/api/bigday/v1`. No es un secreto, por eso va en el repo.
 - `web/public/.htaccess`: se copia a `dist/` en cada build. Solo usa directivas de Apache 2.2.
-- El enlace de compartir (`location.origin + location.pathname`) resulta en `https://losolivoscucuta.com/bigDay-encuesta/`, sin el `?src=` de quien respondió.
+- La pantalla de gracias muestra los enlaces al video del evento (Instagram y Facebook), definidos en `web/src/lib/videoEvento.ts`. Ya no hay botón de compartir.
 
 ## Compilar y desplegar
 

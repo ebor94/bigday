@@ -242,7 +242,19 @@ async function flujoFeliz(page: Page, vista: Vista) {
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('¡Gracias!')
   await expect(page.getByRole('status')).toContainText('Recibimos tu respuesta')
-  await expect(page.getByRole('button', { name: 'Compartir el evento' })).toBeVisible()
+  await expect(page.getByText('¡Así vivimos el 2.º October Big Day Los Olivos!')).toBeVisible()
+  await expect(page.getByText('Te invitamos a ver el video del evento en nuestras redes sociales:')).toBeVisible()
+  for (const { nombre, url } of [
+    { nombre: 'Instagram', url: 'https://www.instagram.com/p/DesSPEXihbx/' },
+    { nombre: 'Facebook', url: 'https://www.facebook.com/share/v/19ie8bWh3q/' },
+  ]) {
+    const enlace = page.getByRole('link', { name: url })
+    await expect(enlace).toHaveAttribute('href', url)
+    await expect(enlace).toHaveAttribute('target', '_blank')
+    await expect(enlace).toHaveAttribute('rel', 'noopener noreferrer')
+    await expect(page.getByText(`${nombre}:`)).toBeVisible()
+  }
+  await expect(page.getByRole('button', { name: 'Compartir el evento' })).toHaveCount(0)
   await revisar(page, vista, 'gracias', { axe: true })
 
   expect(enviados).toHaveLength(1)
@@ -513,7 +525,7 @@ test('al volver, si la respuesta guardada se rechaza (400) al reintentar: no dic
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('No pudimos registrar tu respuesta')
   await expect(page.getByRole('status')).toContainText('No pudimos registrar tu respuesta anterior')
   await expect(page.getByRole('status')).not.toContainText('ya está con nosotros')
-  await expect(page.getByRole('button', { name: 'Compartir el evento' })).toHaveCount(0)
+  await expect(page.locator('.gracias__video')).toHaveCount(0)
   expect(enviados).toHaveLength(1)
   if (test.info().project.name === PROYECTO_ANCHOS) {
     for (const width of [375, 1440]) {

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// Cierre: mensaje según el estado del envío, bandada que despega, plumas suaves y botón para
-// compartir el evento (Web Share API → WhatsApp). Modo "ya respondiste" al volver, con
+// Cierre: mensaje según el estado del envío, bandada que despega, plumas suaves y bloque con
+// los enlaces al video del evento (Instagram y Facebook). Modo "ya respondiste" al volver, con
 // opción discreta de responder de nuevo (familias que comparten celular).
 // Plumas: SVG propio animado solo con transform/opacity; ocultas con reduced-motion.
 import { computed, onMounted, ref } from 'vue'
 import { useBirds } from '../composables/useBirds'
-import { compartir, urlEncuesta } from '../lib/compartir'
+import { VIDEO_EVENTO } from '../lib/videoEvento'
 import { ID_TITULO, type ModoGracias } from '../lib/pantallas'
 
 const props = defineProps<{
@@ -48,7 +48,7 @@ const TEXTOS: Record<ModoGracias, { titulo: string; estado: string }> = {
 
 const texto = computed(() => TEXTOS[props.modo])
 const estado = computed(() => (props.modo === 'rechazada' ? (props.mensaje ?? '') : texto.value.estado))
-const puedeCompartir = computed(() => props.modo !== 'rechazada' && props.modo !== 'enviando' && props.modo !== 'no_registrada')
+const mostrarVideo = computed(() => props.modo !== 'rechazada' && props.modo !== 'enviando' && props.modo !== 'no_registrada')
 const esRegreso = computed(() => props.modo === 'ya_respondiste' || props.modo === 'pendiente_regreso')
 
 const PLUMAS = Array.from({ length: 8 }, (_, i) => ({
@@ -58,13 +58,6 @@ const PLUMAS = Array.from({ length: 8 }, (_, i) => ({
   escala: 0.7 + ((i * 7) % 5) * 0.12,
   color: ['#E8B623', '#F0461E', '#7FA650', '#0D4A5A'][i % 4],
 }))
-
-async function alCompartir() {
-  await compartir(urlEncuesta(window.location), {
-    navegador: navigator,
-    abrir: (url) => window.open(url, '_blank', 'noopener'),
-  })
-}
 
 onMounted(() => {
   if (titulo.value && props.modo !== 'rechazada' && props.modo !== 'no_registrada') aves.launchFlock(titulo.value, 6)
@@ -143,41 +136,27 @@ onMounted(() => {
       >
         Responder de nuevo
       </button>
-      <button
-        v-if="puedeCompartir"
-        type="button"
-        class="boton-secundario gracias__compartir"
-        @click="alCompartir"
+    </div>
+
+    <div
+      v-if="mostrarVideo"
+      class="gracias__video"
+    >
+      <p class="gracias__video-titulo">
+        <span aria-hidden="true">{{ VIDEO_EVENTO.emojiTitulo }}</span> {{ VIDEO_EVENTO.titulo }}
+      </p>
+      <p>{{ VIDEO_EVENTO.invitacion }}</p>
+      <p
+        v-for="e in VIDEO_EVENTO.enlaces"
+        :key="e.nombre"
       >
-        <svg
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          focusable="false"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle
-            cx="18"
-            cy="5"
-            r="2.5"
-          />
-          <circle
-            cx="6"
-            cy="12"
-            r="2.5"
-          />
-          <circle
-            cx="18"
-            cy="19"
-            r="2.5"
-          />
-          <path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4" />
-        </svg>
-        Compartir el evento
-      </button>
+        <span aria-hidden="true">{{ VIDEO_EVENTO.emojiEnlace }}</span> {{ e.nombre }}:
+        <a
+          :href="e.url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >{{ e.url }}</a>
+      </p>
     </div>
 
     <p
@@ -247,6 +226,29 @@ onMounted(() => {
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--space-3);
+}
+
+.gracias__video {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 30rem;
+  font-size: var(--fs-md);
+  color: var(--c-ink);
+  overflow-wrap: anywhere;
+}
+
+.gracias__video-titulo {
+  font-weight: 700;
+  color: var(--c-teal-900);
+}
+
+.gracias__video a {
+  color: var(--c-teal-900);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
 }
 
 .gracias__otra {
