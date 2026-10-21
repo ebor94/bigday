@@ -16,7 +16,8 @@ Encuesta web de experiencia del 2.º October Big Day (Parque de Vida Los Olivos,
 - No marcar una tarea como terminada sin ejecutar sus pruebas y mostrar la salida.
 
 ## Comandos
-- `npm run dev` — API + web
+- `npm run dev` — web (el backend corre en Mantix)
+- `npm run sync:backend` — regenera la copia de `shared/` en `../mantix-git/src/bigday/shared/` (`-- --check` para verificar)
 - `npm test` — Vitest en todos los paquetes
 - `npm run test:e2e` — Playwright
 - `npm run build`
