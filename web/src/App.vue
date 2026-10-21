@@ -353,6 +353,11 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   min-height: 100dvh;
   padding: var(--space-5) var(--gutter) var(--space-8);
+  /* La tarjeta entra/sale desplazada 70 px (transform): sin recorte, en Chrome Android el
+     desborde momentáneo ensancha el viewport de layout (la página se aleja y vuelve).
+     `clip` no crea contenedor de scroll; `hidden` es el respaldo para Safari iOS 15. */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .flujo__numero {
