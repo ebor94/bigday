@@ -3,12 +3,13 @@ import { z } from 'zod'
 // Fuente única de verdad de la encuesta: front y back importan de aquí.
 // Se guardan códigos, nunca los textos (spec §6).
 
-// TODO: los enunciados (títulos) de cada pregunta están pendientes de Edwin.
-// Por ahora no existe el campo `title`; no inventar textos.
+// Los enunciados (`title`) son literales de la spec §6 "Enunciados" (aportados por Edwin el 2026-10-21).
 
 export const QUESTIONS = [
   {
     id: 'p1',
+    title:
+      'Antes de participar en el October Big Day, ¿cuál de las siguientes afirmaciones describe mejor lo que sabes sobre la biodiversidad de Los Olivos?',
     type: 'single',
     required: true,
     allowOther: false,
@@ -21,6 +22,8 @@ export const QUESTIONS = [
   },
   {
     id: 'p2',
+    title:
+      'Antes de participar en el evento, ¿con qué asociabas a Los Olivos?',
     type: 'single',
     required: true,
     allowOther: false,
@@ -33,6 +36,8 @@ export const QUESTIONS = [
   },
   {
     id: 'p3',
+    title:
+      'Después de vivir esta experiencia, ¿con qué asocias ahora a Los Olivos?',
     type: 'single',
     required: true,
     allowOther: true,
@@ -46,6 +51,8 @@ export const QUESTIONS = [
   },
   {
     id: 'p4',
+    title:
+      '¿Qué fue lo que más te sorprendió o aprendiste durante el evento?',
     type: 'single',
     required: true,
     allowOther: true,
@@ -59,6 +66,8 @@ export const QUESTIONS = [
   },
   {
     id: 'p5',
+    title:
+      'Después de participar en el October Big Day, ¿qué aprendiste sobre la biodiversidad de Los Olivos?',
     type: 'single',
     required: true,
     allowOther: false,
@@ -71,6 +80,8 @@ export const QUESTIONS = [
   },
   {
     id: 'p6',
+    title:
+      'En una escala de 1 a 10, ¿qué tan probable es que recomiendes el October Big Day de Los Olivos a tus familiares o amigos?',
     type: 'scale',
     required: true,
     allowOther: false,
@@ -81,6 +92,8 @@ export const QUESTIONS = [
   },
   {
     id: 'p7',
+    title:
+      'En una frase, ¿qué le contarías a alguien para animarlo a conocer Parque de Vida Los Olivos?',
     type: 'open',
     required: true,
     allowOther: false,

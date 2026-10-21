@@ -25,6 +25,18 @@ describe('QUESTIONS', () => {
     expect(codigos('p5')).toEqual(['A', 'B', 'C', 'D'])
   })
 
+  it('tiene los enunciados literales de la spec §6 "Enunciados"', () => {
+    expect(QUESTIONS.map((q) => q.title)).toEqual([
+      'Antes de participar en el October Big Day, ¿cuál de las siguientes afirmaciones describe mejor lo que sabes sobre la biodiversidad de Los Olivos?',
+      'Antes de participar en el evento, ¿con qué asociabas a Los Olivos?',
+      'Después de vivir esta experiencia, ¿con qué asocias ahora a Los Olivos?',
+      '¿Qué fue lo que más te sorprendió o aprendiste durante el evento?',
+      'Después de participar en el October Big Day, ¿qué aprendiste sobre la biodiversidad de Los Olivos?',
+      'En una escala de 1 a 10, ¿qué tan probable es que recomiendes el October Big Day de Los Olivos a tus familiares o amigos?',
+      'En una frase, ¿qué le contarías a alguien para animarlo a conocer Parque de Vida Los Olivos?',
+    ])
+  })
+
   it('solo p3 y p4 permiten "otro"', () => {
     expect(QUESTIONS.filter((q) => q.allowOther).map((q) => q.id)).toEqual(['p3', 'p4'])
   })
