@@ -1,17 +1,22 @@
 <script setup lang="ts">
-// Capa de aves: dibuja las aves del store compartido y reproduce cada vuelo con la
+// Capas de aves: dibujan las aves del store compartido y reproducen cada vuelo con la
 // Web Animations API (solo `transform` y `opacity`, compuestas en GPU).
 //
-// Orden de apilado: z-index 2, por encima del fondo acuarela (0) y del contenido (1).
-// Se elige así porque la bandada debe verse despegar DESDE la tarjeta elegida y el ave
-// posada debe quedar sobre su elemento. No estorba: `pointer-events: none` (los clics
-// pasan al contenido) y `aria-hidden` (los lectores de pantalla la ignoran).
-import { onBeforeUnmount, ref, watch } from 'vue'
+// Orden de apilado (spec §5: las aves ambientales "cruzan el fondo"):
+// - Capa de fondo (z-index 0): aves ambientales. Va después de WatercolorBackground en el DOM
+//   (mismo z-index 0), así que pinta sobre la acuarela y bajo el contenido (z-index 1).
+// - Capa frontal (z-index 2): bandada y aves posadas, que deben verse despegar DESDE la
+//   tarjeta elegida y quedar SOBRE su elemento.
+// Ninguna estorba: `pointer-events: none` y `aria-hidden`. El contenedor no crea contexto
+// de apilado (sin position/z-index), para que cada capa compita con la página.
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { posicionPosada, useBirds, type Ave } from '../composables/useBirds'
 import BirdSprite from './BirdSprite.vue'
 
 const { aves, oculto, terminarVuelo } = useBirds()
 const capa = ref<HTMLElement | null>(null)
+const avesFondo = computed(() => aves.value.filter((a) => a.tipo === 'ambient'))
+const avesFrente = computed(() => aves.value.filter((a) => a.tipo !== 'ambient'))
 
 /** Animación de cada ave (null si no tiene: ave posada estática). */
 const animaciones = new Map<number, Animation | null>()
@@ -43,9 +48,11 @@ function iniciar(ave: Ave) {
   animaciones.set(ave.id, anim)
 }
 
-// ── Aves posadas: siguen a su elemento al hacer scroll o cambiar el tamaño ──
+// ── Aves posadas: siguen a su elemento (scroll, resize, cambios de tamaño y fuentes) ──
 
 let escuchando = false
+let observador: ResizeObserver | null = null
+const anclasObservadas = new Set<Element>()
 
 function colocarPosadas() {
   for (const ave of aves.value) {
@@ -71,23 +78,48 @@ function escucharPosadas(activo: boolean) {
   }
 }
 
-watch(
-  aves,
-  (lista) => {
-    const vivas = new Set(lista.map((a) => a.id))
-    for (const [id, anim] of animaciones) {
-      if (vivas.has(id)) continue
-      anim?.cancel()
-      animaciones.delete(id)
-    }
-    for (const ave of lista) if (!animaciones.has(ave.id)) iniciar(ave)
-    const hayPosadas = lista.some((a) => a.tipo === 'perched')
-    escucharPosadas(hayPosadas)
-    // Colocación inmediata (sin esperar un frame) para que el ave nazca en su sitio.
-    if (hayPosadas) colocarPosadas()
-  },
-  { flush: 'post', immediate: true },
-)
+/** Observa con ResizeObserver solo las anclas de las aves posadas vigentes. */
+function observarAnclas(lista: readonly Ave[]) {
+  if (!observador) return
+  const vigentes = new Set(lista.flatMap((a) => (a.tipo === 'perched' && a.ancla ? [a.ancla] : [])))
+  for (const ancla of anclasObservadas) {
+    if (vigentes.has(ancla)) continue
+    observador.unobserve(ancla)
+    anclasObservadas.delete(ancla)
+  }
+  for (const ancla of vigentes) {
+    if (anclasObservadas.has(ancla)) continue
+    observador.observe(ancla)
+    anclasObservadas.add(ancla)
+  }
+}
+
+function sincronizar(lista: readonly Ave[]) {
+  const vivas = new Set(lista.map((a) => a.id))
+  for (const [id, anim] of animaciones) {
+    if (vivas.has(id)) continue
+    anim?.cancel()
+    animaciones.delete(id)
+  }
+  for (const ave of lista) if (!animaciones.has(ave.id)) iniciar(ave)
+  const hayPosadas = lista.some((a) => a.tipo === 'perched')
+  escucharPosadas(hayPosadas)
+  observarAnclas(lista)
+  // Colocación inmediata (sin esperar un frame) para que el ave nazca en su sitio.
+  if (hayPosadas) colocarPosadas()
+}
+
+// Primera sincronización al montar (ya existe el DOM de las capas): incluye las aves que
+// el store tuviera antes de montarse BirdLayer. Después, cada cambio tras renderizar.
+onMounted(() => {
+  if (typeof ResizeObserver !== 'undefined') observador = new ResizeObserver(() => colocarPosadas())
+  sincronizar(aves.value)
+  // Al cargar las fuentes cambia el layout del texto: se recolocan las aves posadas.
+  void document.fonts?.ready.then(() => {
+    if (capa.value) colocarPosadas()
+  })
+})
+watch(aves, sincronizar, { flush: 'post' })
 
 // Pestaña oculta: se pausan los vuelos; al volver, se reanudan donde quedaron.
 watch(oculto, (pausar) => {
@@ -100,6 +132,9 @@ watch(oculto, (pausar) => {
 
 onBeforeUnmount(() => {
   escucharPosadas(false)
+  observador?.disconnect()
+  observador = null
+  anclasObservadas.clear()
   for (const anim of animaciones.values()) anim?.cancel()
   animaciones.clear()
 })
@@ -118,22 +153,28 @@ function estiloSprite(ave: Ave) {
 <template>
   <div
     ref="capa"
-    class="capa-aves"
+    class="aves"
     aria-hidden="true"
   >
     <div
-      v-for="ave in aves"
-      :key="ave.id"
-      :class="['ave', `ave--${ave.tipo}`, { 'ave--volando': ave.tipo !== 'perched' }]"
-      :data-ave="ave.id"
-      :data-tipo="ave.tipo"
+      v-for="grupo in [{ nombre: 'fondo', lista: avesFondo }, { nombre: 'frente', lista: avesFrente }]"
+      :key="grupo.nombre"
+      :class="['capa-aves', `capa-aves--${grupo.nombre}`]"
     >
-      <div class="ave__vuelo">
-        <BirdSprite
-          :color="ave.color"
-          :aletea="ave.aletea"
-          :style="estiloSprite(ave)"
-        />
+      <div
+        v-for="ave in grupo.lista"
+        :key="ave.id"
+        :class="['ave', `ave--${ave.tipo}`, { 'ave--volando': ave.tipo !== 'perched' }]"
+        :data-ave="ave.id"
+        :data-tipo="ave.tipo"
+      >
+        <div class="ave__vuelo">
+          <BirdSprite
+            :color="ave.color"
+            :aletea="ave.aletea"
+            :style="estiloSprite(ave)"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -143,11 +184,18 @@ function estiloSprite(ave: Ave) {
 .capa-aves {
   position: fixed;
   inset: 0;
-  z-index: 2;
   overflow: hidden;
   pointer-events: none;
   /* Aísla la capa: lo que pase dentro no fuerza layout/paint del resto de la página. */
   contain: strict;
+}
+
+.capa-aves--fondo {
+  z-index: 0;
+}
+
+.capa-aves--frente {
+  z-index: 2;
 }
 
 .ave {

@@ -100,6 +100,66 @@ test('las animaciones solo tocan transform/opacity y nunca hay más de 12 aves',
   test.info().annotations.push({ type: 'aves', description: `máximo en DOM: ${maximo}; propiedades: ${informe.propiedades.join(', ')}` })
 })
 
+test('pausa los vuelos con document.hidden y los reanuda al volver', async ({ page }) => {
+  await preparar(page, { width: 375, height: 812 })
+  await page.clock.runFor(3_000)
+  await page.locator('.opcion').first().click()
+  await expect(page.locator('.ave--flock')).toHaveCount(5)
+  const estados = async (oculta: boolean) => {
+    await page.evaluate((oculta) => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => oculta })
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => (oculta ? 'hidden' : 'visible'),
+      })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }, oculta)
+    return page.evaluate(() => [
+      ...new Set(
+        document
+          .getAnimations()
+          .filter((a) => a.constructor.name === 'Animation' && a.playState !== 'finished')
+          .map((a) => a.playState),
+      ),
+    ])
+  }
+  expect(await estados(true)).toEqual(['paused'])
+  expect(await page.locator('.ave--flock').count()).toBe(5)
+  expect(await estados(false)).toEqual(['running'])
+})
+
+test('las ambientales vuelan bajo el contenido; bandada y posada, encima', async ({ page }) => {
+  await preparar(page, { width: 1440, height: 900 })
+  await page.clock.runFor(3_000)
+  await page.locator('.opcion').first().click()
+  const capas = await page.evaluate(() => {
+    const z = (sel: string) => {
+      const el = document.querySelector(sel)
+      return el ? Number(getComputedStyle(el).zIndex) : NaN
+    }
+    return {
+      acuarela: z('.acuarela'),
+      fondo: z('.capa-aves--fondo'),
+      contenido: z('main'),
+      frente: z('.capa-aves--frente'),
+      ambientalesEnFondo: document.querySelectorAll('.capa-aves--fondo .ave--ambient').length,
+      ambientalesEnFrente: document.querySelectorAll('.capa-aves--frente .ave--ambient').length,
+      bandadaEnFrente: document.querySelectorAll('.capa-aves--frente .ave--flock').length,
+      posadaEnFrente: document.querySelectorAll('.capa-aves--frente .ave--perched').length,
+      // La capa de fondo va después de la acuarela en el DOM: con igual z-index, pinta encima.
+      fondoTrasAcuarela: Boolean(
+        (document.querySelector('.acuarela')?.compareDocumentPosition(document.querySelector('.capa-aves--fondo') as Node) ?? 0) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    }
+  })
+  expect(capas).toMatchObject({ acuarela: 0, fondo: 0, contenido: 1, frente: 2, ambientalesEnFrente: 0, posadaEnFrente: 1 })
+  expect(capas.ambientalesEnFondo).toBeGreaterThanOrEqual(2)
+  expect(capas.bandadaEnFrente).toBe(5)
+  expect(capas.fondoTrasAcuarela).toBe(true)
+  await sinScrollHorizontal(page)
+})
+
 test('el vuelo no provoca layout por frame (métricas CDP)', async ({ page }) => {
   await preparar(page, { width: 1440, height: 900 })
   await page.locator('.opcion').first().click()

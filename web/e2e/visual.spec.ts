@@ -42,9 +42,10 @@ for (const vista of VISTAS) {
     await page.screenshot({ path: join(DIR, `${PREFIJO}-${vista.nombre}.png`), fullPage: true })
 
     // Sobre el fondo acuarela (SVG/imagen) axe no puede medir todo y deja nodos "incomplete".
-    // Segunda pasada estricta: sin la capa decorativa, todo el texto debe medirse y aprobar.
+    // Segunda pasada estricta: sin las capas decorativas (acuarela y aves, que con la capa
+    // ambiental bajo el contenido pueden pasar detrás del texto), todo el texto debe medirse y aprobar.
     await page.addStyleTag({
-      content: '.acuarela{display:none!important} body{background-image:none!important}',
+      content: '.acuarela,.aves{display:none!important} body{background-image:none!important}',
     })
     const estricto = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze()
     expect(estricto.violations, JSON.stringify(estricto.violations, null, 2)).toEqual([])

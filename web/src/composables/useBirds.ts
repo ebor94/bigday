@@ -15,7 +15,7 @@ export const AMBIENTE_INTERVALO_MAX_MS = 15_000
 /** Primera oleada poco después de arrancar, para que el fondo se sienta vivo enseguida. */
 export const PRIMERA_OLEADA_MS = 2_500
 /** Margen tras el fin teórico del vuelo antes de retirar el ave por seguridad. */
-const MARGEN_SEGURIDAD_MS = 1_000
+export const MARGEN_SEGURIDAD_MS = 1_000
 /** Distancia (px) fuera del viewport donde nacen y mueren las aves. */
 const FUERA_PX = 80
 const MUESTRAS = 8
@@ -161,7 +161,11 @@ export function crearBirds(opciones: OpcionesBirds = {}): BirdsStore {
   const reducido = opciones.reducedMotion ?? scope.run(() => useReducedMotion()) ?? ref(false)
   const aves = shallowRef<readonly Ave[]>([])
   const oculto = ref(visibilidad?.hidden ?? false)
-  const seguridad = new Map<number, ReturnType<typeof setTimeout>>()
+  /**
+   * Temporizador de seguridad por ave voladora. Con la pestaña oculta BirdLayer pausa los
+   * vuelos, así que el temporizador también se congela y guarda el tiempo que le queda.
+   */
+  const seguridad = new Map<number, { timer: ReturnType<typeof setTimeout> | null; restante: number; desde: number }>()
   let siguienteId = 1
   let ambienteDeseado = false
   let temporizadorAmbiente: ReturnType<typeof setTimeout> | null = null
@@ -173,19 +177,32 @@ export function crearBirds(opciones: OpcionesBirds = {}): BirdsStore {
   function quitar(ids: ReadonlySet<number>) {
     if (!ids.size) return
     for (const id of ids) {
-      const t = seguridad.get(id)
-      if (t !== undefined) clearTimeout(t)
+      const t = seguridad.get(id)?.timer
+      if (t != null) clearTimeout(t)
       seguridad.delete(id)
     }
     aves.value = aves.value.filter((a) => !ids.has(a.id))
   }
 
+  function armarSeguridad(id: number) {
+    const s = seguridad.get(id)
+    if (!s || s.timer !== null) return
+    s.desde = Date.now()
+    s.timer = setTimeout(() => quitar(new Set([id])), s.restante)
+  }
+
+  function congelarSeguridad(id: number) {
+    const s = seguridad.get(id)
+    if (!s || s.timer === null) return
+    clearTimeout(s.timer)
+    s.timer = null
+    s.restante = Math.max(0, s.restante - (Date.now() - s.desde))
+  }
+
   function agregarVoladoras(nuevas: Ave[]) {
     for (const ave of nuevas) {
-      seguridad.set(
-        ave.id,
-        setTimeout(() => quitar(new Set([ave.id])), ave.retraso + ave.duracion + MARGEN_SEGURIDAD_MS),
-      )
+      seguridad.set(ave.id, { timer: null, restante: ave.retraso + ave.duracion + MARGEN_SEGURIDAD_MS, desde: 0 })
+      if (!oculto.value) armarSeguridad(ave.id)
     }
     aves.value = [...aves.value, ...nuevas]
   }
@@ -334,8 +351,13 @@ export function crearBirds(opciones: OpcionesBirds = {}): BirdsStore {
 
   function alCambiarVisibilidad() {
     oculto.value = visibilidad?.hidden ?? false
-    if (oculto.value) cancelarAmbiente()
-    else programarAmbiente(intervalo())
+    if (oculto.value) {
+      cancelarAmbiente()
+      for (const id of seguridad.keys()) congelarSeguridad(id)
+    } else {
+      for (const id of seguridad.keys()) armarSeguridad(id)
+      programarAmbiente(intervalo())
+    }
   }
   visibilidad?.addEventListener('visibilitychange', alCambiarVisibilidad)
 
@@ -389,3 +411,9 @@ export function useBirds(): BirdsStore {
   instancia ??= crearBirds()
   return instancia
 }
+
+// Desarrollo (HMR): al reemplazar el módulo se destruye el store viejo (temporizadores y listeners).
+import.meta.hot?.dispose(() => {
+  instancia?.destruir()
+  instancia = null
+})

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import {
   AMBIENTE_INTERVALO_MAX_MS,
   AMBIENTE_INTERVALO_MIN_MS,
+  MARGEN_SEGURIDAD_MS,
   MAX_AVES,
   crearBirds,
   posicionPosada,
@@ -325,6 +326,38 @@ describe('crearBirds — document.hidden', () => {
     expect(store.oculto.value).toBe(true)
     vi.advanceTimersByTime(60_000)
     expect(store.aves.value.filter((a) => a.tipo === 'ambient')).toHaveLength(0)
+    store.destruir()
+  })
+
+  it('congela el temporizador de seguridad mientras está oculta y lo reanuda con el tiempo restante', () => {
+    const { store, vis } = crear()
+    const [ave] = store.launchFlock({ x: 100, y: 100 }, 1)
+    if (!ave) throw new Error('sin ave')
+    const total = ave.retraso + ave.duracion + MARGEN_SEGURIDAD_MS
+    vi.advanceTimersByTime(500)
+    vis.cambiar(true)
+    vi.advanceTimersByTime(60_000) // mucho más que la duración del vuelo
+    expect(store.aves.value).toHaveLength(1)
+    vis.cambiar(false)
+    expect(store.aves.value).toHaveLength(1)
+    vi.advanceTimersByTime(total - 500 - 1)
+    expect(store.aves.value).toHaveLength(1)
+    vi.advanceTimersByTime(1)
+    expect(store.aves.value).toHaveLength(0)
+    store.destruir()
+  })
+
+  it('un ave lanzada con la pestaña oculta no corre su temporizador hasta que vuelve a verse', () => {
+    const { store, vis } = crear({ hidden: true })
+    const [ave] = store.launchFlock({ x: 100, y: 100 }, 1)
+    if (!ave) throw new Error('sin ave')
+    vi.advanceTimersByTime(60_000)
+    expect(store.aves.value).toHaveLength(1)
+    vis.cambiar(false)
+    vi.advanceTimersByTime(ave.retraso + ave.duracion + MARGEN_SEGURIDAD_MS - 1)
+    expect(store.aves.value).toHaveLength(1)
+    vi.advanceTimersByTime(1)
+    expect(store.aves.value).toHaveLength(0)
     store.destruir()
   })
 
