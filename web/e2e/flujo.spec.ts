@@ -455,6 +455,80 @@ test('API caída: mensaje amable; al recargar con la API de vuelta reintenta el 
   expect(await page.evaluate(() => localStorage.getItem('bigday:respondida'))).not.toBeNull()
 })
 
+test('API caída con la página abierta: reintenta sola a los 15 s y pasa a "Recibimos tu respuesta"', async ({ page }) => {
+  await page.route('**/api/bigday/v1/respuestas', (route) => route.abort('internetdisconnected'))
+  await abrir(page)
+  await hastaP7(page)
+  await page.getByRole('textbox').fill('Un lugar lleno de vida')
+  await page.getByRole('button', { name: 'Enviar' }).click()
+  await page.clock.runFor(PASO_MS)
+  await expect(page.getByRole('status')).toContainText('se enviará automáticamente')
+  await page.unroute('**/api/bigday/v1/respuestas')
+  const reintentos = await simularApi(page)
+  await page.clock.runFor(15_000)
+  await expect(page.getByRole('status')).toContainText('Recibimos tu respuesta')
+  expect(reintentos).toHaveLength(1)
+  expect(await page.evaluate(() => localStorage.getItem('bigday:outbox'))).toBeNull()
+})
+
+test('el evento "online" reenvía enseguida lo pendiente', async ({ page }) => {
+  await page.route('**/api/bigday/v1/respuestas', (route) => route.abort('internetdisconnected'))
+  await abrir(page)
+  await hastaP7(page)
+  await page.getByRole('textbox').fill('Un lugar lleno de vida')
+  await page.getByRole('button', { name: 'Enviar' }).click()
+  await page.clock.runFor(PASO_MS)
+  await expect(page.getByRole('status')).toContainText('se enviará automáticamente')
+  await page.unroute('**/api/bigday/v1/respuestas')
+  const reintentos = await simularApi(page)
+  await page.evaluate(() => window.dispatchEvent(new Event('online')))
+  await expect(page.getByRole('status')).toContainText('Recibimos tu respuesta')
+  expect(reintentos).toHaveLength(1)
+})
+
+test('un 404 de la infraestructura (redespliegue, URL mal puesta) no borra la respuesta: queda pendiente', async ({ page }) => {
+  const enviados = await simularApi(page, 404, { error: 'Not Found' })
+  await abrir(page)
+  await hastaP7(page)
+  await page.getByRole('textbox').fill('Un lugar lleno de vida')
+  await page.getByRole('button', { name: 'Enviar' }).click()
+  await page.clock.runFor(PASO_MS)
+  await expect(page.getByRole('status')).toContainText('No se pierde nada.')
+  expect(enviados).toHaveLength(1)
+  const bandeja = await page.evaluate(() => JSON.parse(localStorage.getItem('bigday:outbox') ?? '[]'))
+  expect(bandeja).toHaveLength(1)
+})
+
+test('al volver, si la respuesta guardada se rechaza (400) al reintentar: no dice "ya respondiste" y deja responder', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('sembrado')) return
+    sessionStorage.setItem('sembrado', '1')
+    localStorage.setItem(
+      'bigday:outbox',
+      JSON.stringify([{ uuid: '33333333-3333-4333-8333-333333333333', p1: 'A', p2: 'ambas', p3: 'memoria', p4: 'diversidad', p5: 'B', p6: 9, p7: 'xx', duracion_seg: 40 }]),
+    )
+  })
+  const enviados = await simularApi(page, 400, { error: 'Datos inválidos.' })
+  await abrir(page, {}, '')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('No pudimos registrar tu respuesta')
+  await expect(page.getByRole('status')).toContainText('No pudimos registrar tu respuesta anterior')
+  await expect(page.getByRole('status')).not.toContainText('ya está con nosotros')
+  await expect(page.getByRole('button', { name: 'Compartir el evento' })).toHaveCount(0)
+  expect(enviados).toHaveLength(1)
+  if (test.info().project.name === PROYECTO_ANCHOS) {
+    for (const width of [375, 1440]) {
+      await page.setViewportSize({ width, height: width === 375 ? 812 : 900 })
+      await sinScrollHorizontal(page, `no-registrada-${width}`)
+      await page.screenshot({ path: join(DIR, `${PREFIJO}-${width}-no-registrada.png`) })
+    }
+  }
+  expect(await page.evaluate(() => localStorage.getItem('bigday:outbox'))).toBeNull()
+  expect(await page.evaluate(() => localStorage.getItem('bigday:respondida'))).toBeNull()
+  await page.getByRole('button', { name: 'Responder de nuevo' }).click()
+  await page.clock.runFor(PASO_MS)
+  await expect(page.getByRole('button', { name: 'Comenzar' })).toBeVisible()
+})
+
 test('segunda visita: tras enviar, al volver muestra "ya respondiste" con "Responder de nuevo"', async ({ page }) => {
   const enviados = await simularApi(page)
   await abrir(page)

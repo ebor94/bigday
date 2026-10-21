@@ -20,7 +20,7 @@ describe('pantallaDe', () => {
 })
 
 describe('modoGracias', () => {
-  const base = { regreso: false, enviando: false, resultado: null, yaRespondio: false, pendientes: 0 }
+  const base = { regreso: false, enviando: false, resultado: null, yaRespondio: false, pendientes: 0, descartadas: 0 }
 
   it('mientras se envía', () => {
     expect(modoGracias({ ...base, enviando: true })).toBe('enviando')
@@ -39,5 +39,17 @@ describe('modoGracias', () => {
   it('al volver: pendiente si quedan en la bandeja; si no, "ya respondiste"', () => {
     expect(modoGracias({ ...base, regreso: true, pendientes: 1 })).toBe('pendiente_regreso')
     expect(modoGracias({ ...base, regreso: true, yaRespondio: true })).toBe('ya_respondiste')
+  })
+
+  it('al volver, si la respuesta guardada fue rechazada al reintentar: no dice "ya respondiste"', () => {
+    expect(modoGracias({ ...base, regreso: true, descartadas: 1 })).toBe('no_registrada')
+    // aunque hubiera una respuesta anterior aceptada, lo último que pasó fue un rechazo
+    expect(modoGracias({ ...base, regreso: true, yaRespondio: true, descartadas: 1 })).toBe('no_registrada')
+    // mientras quede algo en la bandeja sigue "enviándose"
+    expect(modoGracias({ ...base, regreso: true, pendientes: 1, descartadas: 1 })).toBe('pendiente_regreso')
+  })
+
+  it('en la misma visita, una pendiente rechazada en segundo plano tampoco se presenta como enviada', () => {
+    expect(modoGracias({ ...base, resultado: { estado: 'pendiente' }, pendientes: 0, descartadas: 1 })).toBe('no_registrada')
   })
 })

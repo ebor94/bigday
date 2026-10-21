@@ -31,7 +31,10 @@ const aves = useBirds()
 const reducido = useReducedMotion()
 
 // ── Estado de la pantalla de gracias ──
-/** Al abrir ya había respondido (o hay envíos pendientes): se muestra "ya respondiste". */
+/**
+ * Al abrir ya había respondido (o hay envíos pendientes): se muestra la pantalla de gracias en modo regreso
+ * ("ya respondiste" / "se está enviando"; si el reintento la rechaza, "no pudimos registrarla" y se puede responder).
+ */
 const regreso = ref(outbox.yaRespondio.value || outbox.pendientes.value > 0)
 const enviando = ref(false)
 const resultado = ref<ResultadoEnvio | null>(null)
@@ -49,6 +52,7 @@ const modo = computed(() =>
     resultado: resultado.value,
     yaRespondio: outbox.yaRespondio.value,
     pendientes: outbox.pendientes.value,
+    descartadas: outbox.descartadas.value,
   }),
 )
 const esUltima = computed(() => pregunta.value?.id === QUESTIONS[QUESTIONS.length - 1]!.id)
@@ -215,7 +219,7 @@ function alSalir(el: Element, hecho: () => void) {
 }
 
 function alEntrar(el: Element, hecho: () => void) {
-  window.scrollTo({ top: 0, behavior: 'instant' })
+  window.scrollTo(0, 0) // forma clásica: `behavior: 'instant'` no existe en WebKit antiguos
   const fin = () => {
     gsap.set(el, { clearProps: 'transform,opacity' })
     hecho()

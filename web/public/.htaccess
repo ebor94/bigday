@@ -7,6 +7,19 @@
 Options -Indexes
 DirectoryIndex index.html
 
+# www → sin www (301), conservando la ruta y la query (?src=…). La API solo admite por CORS el origen
+# https://losolivoscucuta.com: desde https://www.losolivoscucuta.com todo envío fallaría.
+# En un .htaccess la ruta que ve RewriteRule es relativa a este directorio (sin "/bigDay-encuesta/"),
+# por eso se antepone en el destino. La query se conserva sola (el destino no lleva "?").
+# mod_rewrite en .htaccess exige FollowSymLinks (o SymLinksIfOwnerMatch): se activa aquí, dentro del
+# IfModule, para no depender del httpd.conf. Sin mod_rewrite el bloque se ignora (sin 500).
+<IfModule mod_rewrite.c>
+  Options +FollowSymLinks
+  RewriteEngine On
+  RewriteCond %{HTTP_HOST} ^www\.losolivoscucuta\.com$ [NC]
+  RewriteRule ^(.*)$ https://losolivoscucuta.com/bigDay-encuesta/$1 [R=301,L]
+</IfModule>
+
 # Tipos MIME (mod_mime, incluido en el núcleo de AppServ).
 <IfModule mod_mime.c>
   AddType application/javascript .js .mjs

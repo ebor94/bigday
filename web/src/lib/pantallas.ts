@@ -29,7 +29,15 @@ export function pantallaDe(paso: Paso): Pantalla {
   }
 }
 
-export type ModoGracias = 'enviando' | 'enviada' | 'pendiente' | 'rechazada' | 'pendiente_regreso' | 'ya_respondiste'
+export type ModoGracias =
+  | 'enviando'
+  | 'enviada'
+  | 'pendiente'
+  | 'rechazada'
+  | 'pendiente_regreso'
+  | 'ya_respondiste'
+  /** La respuesta guardada se rechazó al reintentarla: no se presenta como recibida. */
+  | 'no_registrada'
 
 export interface EstadoGracias {
   /** Se llegó a gracias al abrir la página (ya había respondido o hay envíos pendientes). */
@@ -38,11 +46,20 @@ export interface EstadoGracias {
   resultado: ResultadoEnvio | null
   yaRespondio: boolean
   pendientes: number
+  /** Respuestas guardadas que el servidor rechazó al reintentarlas (useOutbox.descartadas). */
+  descartadas: number
 }
 
 export function modoGracias(e: EstadoGracias): ModoGracias {
-  if (e.regreso) return e.pendientes > 0 ? 'pendiente_regreso' : 'ya_respondiste'
+  if (e.regreso) {
+    if (e.pendientes > 0) return 'pendiente_regreso'
+    return e.descartadas > 0 ? 'no_registrada' : 'ya_respondiste'
+  }
   if (e.enviando || !e.resultado) return 'enviando'
-  if (e.resultado.estado === 'pendiente') return e.pendientes === 0 && e.yaRespondio ? 'enviada' : 'pendiente'
+  if (e.resultado.estado === 'pendiente') {
+    if (e.pendientes > 0) return 'pendiente'
+    if (e.descartadas > 0) return 'no_registrada'
+    return e.yaRespondio ? 'enviada' : 'pendiente'
+  }
   return e.resultado.estado
 }

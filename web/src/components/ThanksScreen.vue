@@ -31,19 +31,24 @@ const TEXTOS: Record<ModoGracias, { titulo: string; estado: string }> = {
   pendiente: {
     titulo: '¡Gracias!',
     estado:
-      'Guardamos tu respuesta en este dispositivo. Ahora no hay conexión con el servidor; se enviará automáticamente en cuanto vuelva. No se pierde nada.',
+      'Guardamos tu respuesta en este dispositivo. Ahora no hay conexión con el servidor; mientras esta página siga abierta se enviará automáticamente en cuanto vuelva, y si la cierras, la próxima vez que la abras. No se pierde nada.',
   },
   rechazada: { titulo: 'Revisemos tu respuesta', estado: '' },
   pendiente_regreso: {
     titulo: '¡Gracias, ya respondiste!',
-    estado: 'Tu respuesta se está enviando; si no hay conexión, se enviará automáticamente al recuperarla.',
+    estado:
+      'Tu respuesta aún no llega al servidor. Seguiremos intentando enviarla automáticamente mientras esta página esté abierta.',
   },
   ya_respondiste: { titulo: '¡Gracias, ya respondiste!', estado: 'Tu respuesta ya está con nosotros.' },
+  no_registrada: {
+    titulo: 'No pudimos registrar tu respuesta',
+    estado: 'No pudimos registrar tu respuesta anterior. Si quieres, puedes responder la encuesta de nuevo.',
+  },
 }
 
 const texto = computed(() => TEXTOS[props.modo])
 const estado = computed(() => (props.modo === 'rechazada' ? (props.mensaje ?? '') : texto.value.estado))
-const puedeCompartir = computed(() => props.modo !== 'rechazada' && props.modo !== 'enviando')
+const puedeCompartir = computed(() => props.modo !== 'rechazada' && props.modo !== 'enviando' && props.modo !== 'no_registrada')
 const esRegreso = computed(() => props.modo === 'ya_respondiste' || props.modo === 'pendiente_regreso')
 
 const PLUMAS = Array.from({ length: 8 }, (_, i) => ({
@@ -62,7 +67,7 @@ async function alCompartir() {
 }
 
 onMounted(() => {
-  if (titulo.value && props.modo !== 'rechazada') aves.launchFlock(titulo.value, 6)
+  if (titulo.value && props.modo !== 'rechazada' && props.modo !== 'no_registrada') aves.launchFlock(titulo.value, 6)
 })
 </script>
 
@@ -131,6 +136,14 @@ onMounted(() => {
         Revisar mis respuestas
       </button>
       <button
+        v-if="modo === 'no_registrada'"
+        type="button"
+        class="boton-secundario"
+        @click="emit('otraVez')"
+      >
+        Responder de nuevo
+      </button>
+      <button
         v-if="puedeCompartir"
         type="button"
         class="boton-secundario gracias__compartir"
@@ -168,7 +181,7 @@ onMounted(() => {
     </div>
 
     <p
-      v-if="modo !== 'enviando' && modo !== 'rechazada'"
+      v-if="modo !== 'enviando' && modo !== 'rechazada' && modo !== 'no_registrada'"
       class="gracias__otra"
     >
       <span v-if="esRegreso">¿Alguien más usa este celular?</span>
