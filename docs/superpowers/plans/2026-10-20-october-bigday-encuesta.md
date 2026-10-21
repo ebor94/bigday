@@ -174,3 +174,10 @@ october-bigday-encuesta/
 5. Los enunciados de P1–P7 los aporta Edwin antes de la Tarea 9.
 
 Tareas resultantes: **4a** (este repo) script de sincronización + eliminar `api/`; **4b** (Mantix) módulo `src/bigday` con POST + health + migraciones, portando la lógica de `73a0efd`; **5** (Mantix) resultados y CSV. Tarea 11 ajusta Nginx para proxyar `/api/bigday/` al proceso de Mantix existente (sin PM2 nuevo).
+
+## Enmienda 2026-10-21 (decisiones de Edwin)
+
+1. **Enunciados P1–P7** añadidos a la spec §6 (literales; saltos de línea del mensaje original unidos con un espacio).
+2. **Repositorio del front:** `https://github.com/ebor94/bigday` (remoto `origin` de este repo).
+3. **Despliegue del front:** copiar `web/dist` a `smb://192.9.17.11/AppServ/www/bigDay-encuesta` (montado en `/Volumes/AppServ/www/bigDay-encuesta`), servido por AppServ (Apache 2.2 en Windows) bajo la subruta `/bigDay-encuesta/`. La Tarea 11 sustituye Nginx/PM2 por: build con `base` relativa, `.htaccess` compatible con Apache 2.2 (caché de assets con hash, cabeceras de seguridad si `mod_headers` está disponible) y API en Mantix por URL absoluta (`VITE_API_BASE`) con CORS en Mantix.
+4. **Zona horaria MySQL producción:** `@@global.time_zone = SYSTEM`, `@@system_time_zone = -05` → el `timezone: '-05:00'` del pool es correcto.

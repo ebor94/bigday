@@ -112,6 +112,18 @@ Los textos se muestran literales. Se guardan **códigos**, no textos, para facil
 | P6 | escala 1–10, obligatoria | 1 = Nada probable · 10 = Muy probable |
 | P7 | abierta, obligatoria | 10–280 caracteres |
 
+### Enunciados (literales, aportados por Edwin el 2026-10-21)
+
+| # | Enunciado |
+|---|---|
+| P1 | Antes de participar en el October Big Day, ¿cuál de las siguientes afirmaciones describe mejor lo que sabes sobre la biodiversidad de Los Olivos? |
+| P2 | Antes de participar en el evento, ¿con qué asociabas a Los Olivos? |
+| P3 | Después de vivir esta experiencia, ¿con qué asocias ahora a Los Olivos? |
+| P4 | ¿Qué fue lo que más te sorprendió o aprendiste durante el evento? |
+| P5 | Después de participar en el October Big Day, ¿qué aprendiste sobre la biodiversidad de Los Olivos? |
+| P6 | En una escala de 1 a 10, ¿qué tan probable es que recomiendes el October Big Day de Los Olivos a tus familiares o amigos? |
+| P7 | En una frase, ¿qué le contarías a alguien para animarlo a conocer Parque de Vida Los Olivos? |
+
 Las preguntas viven en un único archivo de configuración (`survey.config.ts`) compartido por front y back (validación), para poder reutilizar la app en otros eventos.
 
 ## 7. Modelo de datos
