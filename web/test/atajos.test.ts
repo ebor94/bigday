@@ -42,12 +42,15 @@ describe('accionTecla en pregunta de opción única', () => {
     expect(accionTecla(tecla('Enter', { enBoton: true }), ctx4)).toBeNull()
   })
 
-  it('mientras se escribe en un campo ignora letras y números, pero Enter continúa y Escape vuelve', () => {
+  it('mientras se escribe en un campo ignora letras y números; Enter continúa', () => {
     const escribiendo = { enCampoTexto: true }
     expect(accionTecla(tecla('a', escribiendo), ctx5)).toBeNull()
     expect(accionTecla(tecla('3', escribiendo), ctx5)).toBeNull()
     expect(accionTecla(tecla('Enter', escribiendo), ctx5)).toEqual({ tipo: 'continuar' })
-    expect(accionTecla(tecla('Escape', escribiendo), ctx5)).toEqual({ tipo: 'atras' })
+  })
+
+  it('Escape dentro del campo "Otro" solo suelta el foco: no vuelve atrás', () => {
+    expect(accionTecla(tecla('Escape', { enCampoTexto: true }), ctx5)).toEqual({ tipo: 'soltarFoco' })
   })
 
   it('con Ctrl/Cmd/Alt no intercepta nada (atajos del navegador)', () => {
@@ -78,9 +81,14 @@ describe('accionTecla en la escala (NPS)', () => {
 describe('accionTecla en la pregunta abierta', () => {
   const ctx = { tipo: 'open' } as const
 
-  it('Enter en el textarea continúa; Shift+Enter deja escribir un salto de línea', () => {
+  it('Enter en el textarea envía; Shift+Enter deja escribir un salto de línea', () => {
     expect(accionTecla(tecla('Enter', { enCampoTexto: true }), ctx)).toEqual({ tipo: 'continuar' })
     expect(accionTecla(tecla('Enter', { enCampoTexto: true, shift: true }), ctx)).toBeNull()
+  })
+
+  it('Escape en el textarea suelta el foco sin volver atrás; fuera del campo sí vuelve', () => {
+    expect(accionTecla(tecla('Escape', { enCampoTexto: true }), ctx)).toEqual({ tipo: 'soltarFoco' })
+    expect(accionTecla(tecla('Escape'), ctx)).toEqual({ tipo: 'atras' })
   })
 
   it('no hay atajos de opción', () => {

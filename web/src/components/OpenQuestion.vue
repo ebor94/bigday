@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Pregunta abierta (P7): textarea con contador. Límites de shared (minLength / maxLength).
+// Pregunta abierta (P7): textarea con contador. Límites y placeholder de shared.
+// Enter envía y Shift+Enter inserta un salto de línea (atajos en App).
 import type { QUESTIONS } from '@bigday/shared'
 import { computed } from 'vue'
 
@@ -11,7 +12,7 @@ const props = defineProps<{
   etiquetaId: string
 }>()
 
-const emit = defineEmits<{ escribir: [texto: string] }>()
+const emit = defineEmits<{ escribir: [id: PreguntaAbierta['id'], texto: string] }>()
 
 const texto = computed(() => props.valor ?? '')
 const largo = computed(() => texto.value.trim().length)
@@ -28,8 +29,8 @@ const idContador = computed(() => `${props.pregunta.id}-contador`)
       :maxlength="pregunta.maxLength"
       :aria-labelledby="etiquetaId"
       :aria-describedby="idContador"
-      placeholder="Ej.: Ven a ver aves increíbles en un lugar lleno de vida"
-      @input="emit('escribir', ($event.target as HTMLTextAreaElement).value)"
+      :placeholder="pregunta.placeholder"
+      @input="emit('escribir', pregunta.id, ($event.target as HTMLTextAreaElement).value)"
     />
     <p
       :id="idContador"

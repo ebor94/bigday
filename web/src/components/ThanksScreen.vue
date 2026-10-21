@@ -6,7 +6,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useBirds } from '../composables/useBirds'
 import { compartir, urlEncuesta } from '../lib/compartir'
-import type { ModoGracias } from '../lib/pantallas'
+import { ID_TITULO, type ModoGracias } from '../lib/pantallas'
 
 const props = defineProps<{
   modo: ModoGracias
@@ -69,7 +69,7 @@ onMounted(() => {
 <template>
   <section
     class="gracias"
-    aria-labelledby="titulo-paso"
+    :aria-labelledby="ID_TITULO"
   >
     <div
       class="plumas"
@@ -105,7 +105,7 @@ onMounted(() => {
     </div>
 
     <h1
-      id="titulo-paso"
+      :id="ID_TITULO"
       ref="titulo"
       class="gracias__titulo"
       tabindex="-1"

@@ -20,11 +20,10 @@ import { useOutbox, type ResultadoEnvio } from './composables/useOutbox'
 import { useReducedMotion } from './composables/useReducedMotion'
 import { useSurvey, type IdPregunta, type Paso } from './composables/useSurvey'
 import { accionTecla, teclaDe, type ContextoTeclado } from './lib/atajos'
-import { modoGracias, pantallaDe } from './lib/pantallas'
+import { ID_TITULO, modoGracias, pantallaDe } from './lib/pantallas'
 
 /** Avance automático tras elegir una opción (spec §5). */
 const AVANCE_MS = 600
-const ID_TITULO = 'titulo-paso'
 
 const survey = useSurvey()
 const outbox = useOutbox()
@@ -67,6 +66,9 @@ function numero(clave: IdPregunta): number | undefined {
   return typeof v === 'number' ? v : undefined
 }
 
+/** La pantalla terminó de entrar; false durante la salida y la entrada de una transición. */
+const estable = ref(true)
+
 // ── Avance automático ──
 let temporizador: ReturnType<typeof setTimeout> | null = null
 function cancelarAvance() {
@@ -81,29 +83,53 @@ function comenzar() {
   survey.comenzar()
 }
 
+/**
+ * ¿La emisión viene de la pregunta del paso actual? Durante la transición de salida la tarjeta
+ * anterior sigue en pantalla: lo que emita no debe aplicarse a la pregunta nueva.
+ */
+const esDelPaso = (id: IdPregunta) => id === survey.paso.value
+
 function elegirOpcion(id: IdPregunta, codigo: string) {
+  if (!esDelPaso(id)) return
   survey.responder(id, codigo)
   cancelarAvance()
-  if (codigo !== 'otro') temporizador = setTimeout(continuar, AVANCE_MS)
+  if (codigo !== 'otro') temporizador = setTimeout(avanzar, AVANCE_MS)
 }
 
 function elegirValor(id: IdPregunta, valor: number) {
+  if (!esDelPaso(id)) return
   survey.responder(id, valor)
   cancelarAvance()
-  temporizador = setTimeout(continuar, AVANCE_MS)
+  temporizador = setTimeout(avanzar, AVANCE_MS)
+}
+
+function escribir(id: IdPregunta, valor: string) {
+  if (esDelPaso(id)) survey.responder(id, valor)
 }
 
 function responderOtro(id: IdPregunta, valor: string) {
-  if (id === 'p3' || id === 'p4') survey.responderOtro(id, valor)
+  if (esDelPaso(id) && (id === 'p3' || id === 'p4')) survey.responderOtro(id, valor)
 }
 
-function continuar() {
+/** Valida y avanza. Con "Otro" validado, la bandada despega desde la tarjeta. */
+function avanzar() {
   cancelarAvance()
   if (enviando.value) return
-  if (survey.siguiente() && survey.paso.value === 'gracias') void enviarRespuesta()
+  const actual = survey.paso.value
+  const conOtro = (actual === 'p3' || actual === 'p4') && survey.respuestas[actual] === 'otro'
+  const tarjeta = document.querySelector(`[data-pregunta="${actual}"]`)
+  if (!survey.siguiente()) return
+  if (conOtro && tarjeta) aves.launchFlock(tarjeta, 4)
+  if (survey.paso.value === 'gracias') void enviarRespuesta()
+}
+
+/** "Continuar" / Enter del usuario: se ignora mientras la pantalla se está moviendo. */
+function continuar() {
+  if (estable.value) avanzar()
 }
 
 function atras() {
+  if (!estable.value) return
   cancelarAvance()
   survey.atras()
 }
@@ -123,7 +149,7 @@ async function enviarRespuesta() {
 /** Rechazada por el servidor: vuelve a P7 sin perder lo respondido. */
 function revisar() {
   resultado.value = null
-  survey.paso.value = QUESTIONS[QUESTIONS.length - 1]!.id
+  survey.irA(QUESTIONS[QUESTIONS.length - 1]!.id)
 }
 
 function responderDeNuevo() {
@@ -148,6 +174,12 @@ function alPulsarTecla(e: KeyboardEvent) {
   const accion = accionTecla(teclaDe(e), ctx)
   if (!accion) return
   e.preventDefault()
+  if (accion.tipo === 'soltarFoco') {
+    if (e.target instanceof HTMLElement) e.target.blur()
+    return
+  }
+  // Durante la transición la pantalla anterior aún se ve: no se elige, ni avanza, ni vuelve.
+  if (!estable.value) return
   if (accion.tipo === 'elegir') pantallaActual.value?.elegirIndice?.(accion.indice)
   else if (accion.tipo === 'valor') pantallaActual.value?.elegirValor?.(accion.valor)
   else if (accion.tipo === 'continuar') continuar()
@@ -155,7 +187,6 @@ function alPulsarTecla(e: KeyboardEvent) {
 }
 
 // ── Transiciones (GSAP: slide + fade + leve rotación; reduced-motion → fundido corto) ──
-const estable = ref(true)
 let direccion = 1
 let enfocarAlEntrar = false
 const ORDEN: readonly Paso[] = ['bienvenida', ...QUESTIONS.map((q) => q.id), 'gracias']
@@ -168,6 +199,7 @@ watch(pasoVisible, (nuevo, anterior) => {
 
 function alSalir(el: Element, hecho: () => void) {
   estable.value = false
+  cancelarAvance()
   if (reducido.value) {
     gsap.to(el, { opacity: 0, duration: 0.12, onComplete: hecho })
     return
@@ -279,8 +311,8 @@ onBeforeUnmount(() => {
           :valor="texto(pantalla.pregunta.id)"
           :otro="textoOtro(pantalla.pregunta.id)"
           :etiqueta-id="ID_TITULO"
-          @elegir="elegirOpcion(pantalla.pregunta.id, $event)"
-          @otro="responderOtro(pantalla.pregunta.id, $event)"
+          @elegir="elegirOpcion"
+          @otro="responderOtro"
         />
         <NpsQuestion
           v-else-if="pantalla.tipo === 'escala'"
@@ -289,14 +321,14 @@ onBeforeUnmount(() => {
           :valor="numero(pantalla.pregunta.id)"
           :etiqueta-id="ID_TITULO"
           :estable="estable"
-          @elegir="elegirValor(pantalla.pregunta.id, $event)"
+          @elegir="elegirValor"
         />
         <OpenQuestion
           v-else-if="pantalla.tipo === 'abierta'"
           :pregunta="pantalla.pregunta"
           :valor="texto(pantalla.pregunta.id)"
           :etiqueta-id="ID_TITULO"
-          @escribir="survey.responder(pantalla.pregunta.id, $event)"
+          @escribir="escribir"
         />
 
         <QuestionNav

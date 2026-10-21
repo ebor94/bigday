@@ -1,5 +1,5 @@
 // Atajos de teclado de la encuesta (spec §5): A–D / 1–5 eligen opción, 1–9 y 0 (=10) en la
-// escala, Enter continúa y Escape vuelve atrás. Función pura: la UI traduce el evento a
+// escala, Enter continúa y Escape vuelve atrás (dentro de un campo de texto solo suelta el foco). Función pura: la UI traduce el evento a
 // `TeclaInfo` y ejecuta la acción devuelta.
 
 export interface TeclaInfo {
@@ -23,11 +23,13 @@ export type AccionTecla =
   | { tipo: 'valor'; valor: number }
   | { tipo: 'continuar' }
   | { tipo: 'atras' }
+  /** Escape dentro de un campo de texto: solo se suelta el foco (no se pierde lo escrito ni se navega). */
+  | { tipo: 'soltarFoco' }
   | null
 
 export function accionTecla(t: TeclaInfo, ctx: ContextoTeclado): AccionTecla {
   if (t.modificador) return null
-  if (t.key === 'Escape') return { tipo: 'atras' }
+  if (t.key === 'Escape') return t.enCampoTexto ? { tipo: 'soltarFoco' } : { tipo: 'atras' }
   if (t.key === 'Enter') {
     if (t.enBoton) return null
     if (t.enCampoTexto && t.shift) return null

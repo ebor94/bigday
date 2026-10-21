@@ -99,6 +99,51 @@ describe('navegación', () => {
   })
 })
 
+describe('irA', () => {
+  it('desde gracias vuelve a P7 conservando las respuestas', () => {
+    const s = useSurvey({ search: '' })
+    responderTodo(s)
+    expect(s.siguiente()).toBe(true)
+    expect(s.paso.value).toBe('gracias')
+    expect(s.irA('p7')).toBe(true)
+    expect(s.paso.value).toBe('p7')
+    expect(s.respuestas.p7).toBe('Un lugar lleno de vida')
+  })
+
+  it('va a cualquier pregunta ya visitada y limpia el error', () => {
+    const s = useSurvey({ search: '' })
+    s.comenzar()
+    s.responder('p1', 'A')
+    s.siguiente()
+    s.siguiente() // p2 vacía: error
+    expect(s.error.value).not.toBeNull()
+    expect(s.irA('p1')).toBe(true)
+    expect(s.paso.value).toBe('p1')
+    expect(s.error.value).toBeNull()
+    // La pregunta más avanzada visitada sigue alcanzable aunque ahora esté en p1.
+    expect(s.irA('p2')).toBe(true)
+    expect(s.paso.value).toBe('p2')
+  })
+
+  it('no salta a preguntas aún no visitadas ni desde la bienvenida', () => {
+    const s = useSurvey({ search: '' })
+    expect(s.irA('p1')).toBe(false)
+    expect(s.paso.value).toBe('bienvenida')
+    s.comenzar()
+    expect(s.irA('p3')).toBe(false)
+    expect(s.paso.value).toBe('p1')
+  })
+
+  it('tras reiniciar() olvida lo visitado', () => {
+    const s = useSurvey({ search: '' })
+    responderTodo(s)
+    s.reiniciar()
+    s.comenzar()
+    expect(s.irA('p7')).toBe(false)
+    expect(s.paso.value).toBe('p1')
+  })
+})
+
 describe('validación por pregunta', () => {
   function enP3() {
     const s = useSurvey()

@@ -93,6 +93,8 @@ export function useSurvey(opciones: OpcionesSurvey = {}) {
   const error = ref<string | null>(null)
   const uuid = ref<string | null>(null)
   let inicio: number | null = null
+  /** Índice (en PASOS) del paso más avanzado alcanzado en esta corrida. */
+  let maxVisitado = 0
 
   const indicePaso = computed(() => PASOS.indexOf(paso.value))
 
@@ -111,6 +113,7 @@ export function useSurvey(opciones: OpcionesSurvey = {}) {
     if (uuid.value === null) uuid.value = generarUuid()
     if (inicio === null) inicio = ahora()
     if (paso.value === 'bienvenida') paso.value = IDS[0]!
+    maxVisitado = Math.max(maxVisitado, indicePaso.value)
   }
 
   function responder(id: IdPregunta, valor: string | number) {
@@ -138,6 +141,16 @@ export function useSurvey(opciones: OpcionesSurvey = {}) {
     }
     error.value = null
     paso.value = PASOS[indicePaso.value + 1]!
+    maxVisitado = Math.max(maxVisitado, indicePaso.value)
+    return true
+  }
+
+  /** Salta a una pregunta ya visitada en esta corrida (p. ej. desde gracias a P7 para revisar). */
+  function irA(id: IdPregunta): boolean {
+    const destino = PASOS.indexOf(id)
+    if (paso.value === 'bienvenida' || !esPregunta(id) || destino > maxVisitado) return false
+    error.value = null
+    paso.value = id
     return true
   }
 
@@ -183,6 +196,7 @@ export function useSurvey(opciones: OpcionesSurvey = {}) {
     error.value = null
     uuid.value = null
     inicio = null
+    maxVisitado = 0
   }
 
   return {
@@ -198,6 +212,7 @@ export function useSurvey(opciones: OpcionesSurvey = {}) {
     responderOtro,
     siguiente,
     atras,
+    irA,
     duracionSeg,
     construirRespuesta,
     reiniciar,

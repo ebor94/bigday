@@ -6,12 +6,15 @@
 // Mientras no exista, se muestra el ave SVG propia (BirdSprite) en grande. La imagen se
 // intenta cargar de forma invisible y solo reemplaza al sprite si carga bien; un 404 no rompe nada.
 import { ref } from 'vue'
+import { ID_TITULO } from '../lib/pantallas'
 import ActivityIcons from './ActivityIcons.vue'
 import BirdSprite from './BirdSprite.vue'
 
 defineEmits<{ comenzar: [] }>()
 
 const RUTA_HERO = `${import.meta.env.BASE_URL}img/mosquero.webp`
+/** Logo de Los Olivos (marca propia de la empresa, spec §5). */
+const RUTA_LOGO = `${import.meta.env.BASE_URL}img/logo-olivos.webp`
 const heroCargado = ref(false)
 </script>
 
@@ -19,8 +22,16 @@ const heroCargado = ref(false)
   <div class="bienvenida">
     <div class="bienvenida__escena">
       <header class="marca">
+        <img
+          class="marca__logo"
+          :src="RUTA_LOGO"
+          alt="Los Olivos"
+          width="408"
+          height="222"
+          decoding="async"
+        >
         <h1
-          id="titulo-paso"
+          :id="ID_TITULO"
           class="marca__titulo"
           tabindex="-1"
         >
@@ -137,7 +148,7 @@ const heroCargado = ref(false)
 
     <section
       class="bienvenida__tarjeta"
-      aria-labelledby="titulo-paso"
+      :aria-labelledby="ID_TITULO"
     >
       <p class="intro">
         Gracias por acompañarnos en un día de aves, arte y vida en Los Olivos.
@@ -181,7 +192,7 @@ const heroCargado = ref(false)
 .bienvenida {
   display: grid;
   justify-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
   width: 100%;
   max-width: 68rem;
 }
@@ -193,7 +204,18 @@ const heroCargado = ref(false)
 }
 
 .marca {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
   text-align: center;
+}
+
+/* Logo sobre el título: discreto en móvil (≈ 6,5 rem de ancho), algo mayor en escritorio.
+   width/height en el HTML reservan el espacio (sin salto de diseño). */
+.marca__logo {
+  width: 6.5rem;
+  height: auto;
+  filter: drop-shadow(0 0 10px rgb(255 255 255 / 0.95));
 }
 
 .marca__titulo {
@@ -252,7 +274,7 @@ const heroCargado = ref(false)
 /* ── Hero: el mosquero llega volando y se posa en la rama ── */
 .hero {
   position: relative;
-  width: min(19rem, 80vw);
+  width: min(15rem, 70vw);
   aspect-ratio: 320 / 150;
 }
 
@@ -356,6 +378,10 @@ const heroCargado = ref(false)
 
   .hero {
     width: min(24rem, 32vw);
+  }
+
+  .marca__logo {
+    width: 9.5rem;
   }
 
   .bienvenida__tarjeta {

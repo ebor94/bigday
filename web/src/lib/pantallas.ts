@@ -4,6 +4,9 @@ import type { Paso } from '../composables/useSurvey'
 
 // Qué pantalla corresponde a cada paso y en qué modo se muestra la de gracias.
 
+/** id del h1 de cada pantalla: recibe el foco al cambiar de paso y etiqueta grupos y secciones. */
+export const ID_TITULO = 'titulo-paso'
+
 type Pregunta = (typeof QUESTIONS)[number]
 
 export type Pantalla =

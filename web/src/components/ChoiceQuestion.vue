@@ -21,9 +21,11 @@ const props = defineProps<{
   etiquetaId: string
 }>()
 
+// Cada emisión lleva el id de su pregunta: App descarta las que no sean del paso actual
+// (p. ej. un clic sobre la tarjeta que se está yendo durante la transición).
 const emit = defineEmits<{
-  elegir: [codigo: string]
-  otro: [texto: string]
+  elegir: [id: PreguntaUnica['id'], codigo: string]
+  otro: [id: PreguntaUnica['id'], texto: string]
 }>()
 
 const aves = useBirds()
@@ -44,8 +46,9 @@ function elegir(indice: number) {
   const opcion = props.pregunta.options[indice]
   const boton = botones.value[indice]
   if (!opcion) return
-  if (boton) aves.launchFlock(boton, 4)
-  emit('elegir', opcion.code)
+  // "Otro" aún no es una respuesta terminada: la bandada despega al validar el texto (App).
+  if (boton && opcion.code !== 'otro') aves.launchFlock(boton, 4)
+  emit('elegir', props.pregunta.id, opcion.code)
 }
 
 function moverFoco(e: KeyboardEvent, indice: number) {
@@ -136,7 +139,7 @@ defineExpose({ elegirIndice: elegir })
         :value="textoOtro"
         autocomplete="off"
         :aria-describedby="`${idOtro}-contador`"
-        @input="emit('otro', ($event.target as HTMLInputElement).value)"
+        @input="emit('otro', pregunta.id, ($event.target as HTMLInputElement).value)"
       >
       <p
         :id="`${idOtro}-contador`"

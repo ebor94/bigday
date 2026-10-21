@@ -20,7 +20,7 @@ const props = defineProps<{
   estable: boolean
 }>()
 
-const emit = defineEmits<{ elegir: [valor: number] }>()
+const emit = defineEmits<{ elegir: [id: PreguntaEscala['id'], valor: number] }>()
 
 const aves = useBirds()
 const botones = ref<HTMLButtonElement[]>([])
@@ -45,7 +45,7 @@ onBeforeUnmount(() => liberarPosada?.())
 function elegir(valor: number) {
   const boton = botones.value[numeros.value.indexOf(valor)]
   if (boton) aves.launchFlock(boton, 3)
-  emit('elegir', valor)
+  emit('elegir', props.pregunta.id, valor)
 }
 
 function moverFoco(e: KeyboardEvent, indice: number) {

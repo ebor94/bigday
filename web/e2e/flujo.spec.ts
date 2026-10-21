@@ -106,6 +106,9 @@ for (const vista of VISTAS) {
     await abrir(page, vista)
     await revisar(page, vista, 'bienvenida', { axe: true })
     await expect(page.getByText('Tus respuestas son anónimas y se usarán solo para mejorar nuestros espacios.')).toBeVisible()
+    const logo = page.getByRole('img', { name: 'Los Olivos' })
+    await expect(logo).toBeVisible()
+    expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
 
     await page.getByRole('button', { name: 'Comenzar' }).click()
     await page.clock.runFor(PASO_MS)
@@ -142,6 +145,13 @@ for (const vista of VISTAS) {
     await expect(page.getByRole('alert')).toHaveText('Escribe tu respuesta en "Otro".')
     await campo.fill('Un aula viva')
     await expect(page.getByText('12 / 120')).toBeVisible()
+    // Escape dentro del campo solo suelta el foco: no vuelve a P2 ni borra el texto.
+    await campo.press('Escape')
+    await page.clock.runFor(PASO_MS)
+    await enPregunta(page, 2)
+    await expect(campo).not.toBeFocused()
+    await expect(campo).toHaveValue('Un aula viva')
+    await campo.focus()
     await revisar(page, vista, 'p3-otro', { axe: true })
     await campo.press('Enter')
     await page.clock.runFor(PASO_MS)
@@ -189,6 +199,13 @@ for (const vista of VISTAS) {
     await expect(texto).toHaveAttribute('placeholder', 'Ej.: Ven a ver aves increíbles en un lugar lleno de vida')
     await page.getByRole('button', { name: 'Enviar' }).click()
     await expect(page.getByRole('alert')).toHaveText('Escribe entre 10 y 280 caracteres.')
+    // Shift+Enter inserta salto de línea; Escape en el textarea no navega.
+    await texto.fill('Primera')
+    await texto.press('Shift+Enter')
+    await texto.press('Escape')
+    await page.clock.runFor(PASO_MS)
+    await enPregunta(page, 6)
+    await expect(texto).toHaveValue('Primera\n')
     await texto.fill('Ven a conocer las aves de Los Olivos')
     await revisar(page, vista, 'p7', { axe: true })
     await page.getByRole('button', { name: 'Enviar' }).click()
@@ -267,6 +284,56 @@ test('rechazada por el servidor: muestra el mensaje y permite revisar sin perder
   await page.clock.runFor(PASO_MS)
   await enPregunta(page, 6)
   await expect(page.getByRole('textbox')).toHaveValue('Vale mucho la pena')
+})
+
+test('durante la transición de salida no se aplican teclas ni clics a la pregunta nueva', async ({ page }) => {
+  await abrir(page, { width: 375, height: 812 })
+  await page.getByRole('button', { name: 'Comenzar' }).click()
+  await page.clock.runFor(PASO_MS)
+  await page.keyboard.press('a') // P1
+  await page.clock.runFor(PASO_MS)
+  await enPregunta(page, 1)
+
+  // P2: "c" y, ya en la salida (600 ms de avance + ~150 ms de los 280 ms del fundido), otra "c".
+  // Además Escape y Enter dentro de esa ventana: no deben volver atrás ni validar P3.
+  await page.keyboard.press('c')
+  await page.clock.runFor(800)
+  await page.keyboard.press('c')
+  await page.keyboard.press('Escape')
+  await page.clock.runFor(PASO_MS)
+  await enPregunta(page, 2)
+  await expect(page.getByRole('radio', { checked: true })).toHaveCount(0)
+  await page.clock.runFor(PASO_MS)
+  await enPregunta(page, 2) // P3 no se respondió, no se saltó y no se volvió a P2
+
+  // P3 → P4: Enter dentro de la ventana de salida no valida P4 (sin error).
+  await page.keyboard.press('a')
+  await page.clock.runFor(800)
+  await page.keyboard.press('Enter')
+  await page.clock.runFor(PASO_MS)
+  await enPregunta(page, 3)
+  await expect(page.getByRole('alert')).toHaveText('')
+
+  // Hasta P7, escribir, volver a P6 y elegir: durante la salida hacia P7 se hace clic en otro número.
+  for (const tecla of ['a', 'a', '8']) {
+    await page.keyboard.press(tecla)
+    await page.clock.runFor(PASO_MS)
+  }
+  await enPregunta(page, 6)
+  await page.getByRole('textbox').fill('Un lugar lleno de vida')
+  await page.getByRole('button', { name: 'Atrás' }).click()
+  await page.clock.runFor(PASO_MS)
+  await enPregunta(page, 5)
+  await page.getByRole('radio', { name: '5', exact: true }).click()
+  await page.clock.runFor(800)
+  await page.locator('[data-valor="3"]').click()
+  await page.keyboard.press('Enter')
+  await page.clock.runFor(PASO_MS)
+  await enPregunta(page, 6)
+  await expect(page.getByRole('textbox')).toHaveValue('Un lugar lleno de vida')
+  await expect(page.getByRole('alert')).toHaveText('')
+  await page.clock.runFor(PASO_MS)
+  await enPregunta(page, 6)
 })
 
 test.describe('con prefers-reduced-motion', () => {
