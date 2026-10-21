@@ -1,0 +1,177 @@
+/* Fondo acuarela (WatercolorBackground.vue).
+   Capa fija detrás del contenido: nunca recibe eventos ni provoca scroll horizontal. */
+
+.acuarela {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: var(--c-paper);
+  contain: strict;
+}
+
+.acuarela__defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* Lavados: elipses radiales que se funden entre sí como pigmento húmedo. */
+.acuarela__lavado {
+  position: absolute;
+  inset: -8%;
+  filter: blur(28px);
+}
+
+.mancha {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+}
+
+.mancha--cielo-a {
+  top: -10%;
+  left: -15%;
+  width: 85%;
+  height: 60%;
+  background: radial-gradient(closest-side, var(--c-sky) 0%, rgb(220 235 245 / 0.7) 55%, transparent 100%);
+}
+
+.mancha--cielo-b {
+  top: -5%;
+  right: -20%;
+  width: 80%;
+  height: 55%;
+  background: radial-gradient(closest-side, rgb(190 218 238 / 0.95) 0%, rgb(220 235 245 / 0.55) 60%, transparent 100%);
+}
+
+.mancha--cielo-c {
+  top: 30%;
+  left: 20%;
+  width: 70%;
+  height: 40%;
+  background: radial-gradient(closest-side, rgb(220 235 245 / 0.75) 0%, transparent 100%);
+}
+
+.mancha--hoja-a {
+  bottom: -18%;
+  left: -20%;
+  width: 70%;
+  height: 50%;
+  background: radial-gradient(closest-side, rgb(127 166 80 / 0.62) 0%, rgb(127 166 80 / 0.26) 55%, transparent 100%);
+}
+
+.mancha--hoja-b {
+  bottom: -20%;
+  right: -18%;
+  width: 72%;
+  height: 52%;
+  background: radial-gradient(closest-side, rgb(14 138 95 / 0.32) 0%, rgb(127 166 80 / 0.2) 55%, transparent 100%);
+}
+
+.mancha--lima {
+  bottom: 8%;
+  left: 30%;
+  width: 55%;
+  height: 32%;
+  background: radial-gradient(closest-side, rgb(200 216 74 / 0.32) 0%, transparent 100%);
+}
+
+/* Textura de papel a baja opacidad. */
+.acuarela__papel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+}
+
+/* Follaje de olivo en las esquinas. El contenedor recibe el transform del parallax;
+   el SVG interior se refleja para las esquinas derechas. */
+.acuarela__follaje {
+  position: absolute;
+  width: clamp(190px, 46vw, 440px);
+  will-change: transform;
+}
+
+.acuarela__follaje svg {
+  position: relative;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.acuarela__follaje--sup-izq {
+  top: -3%;
+  left: -6%;
+}
+
+.acuarela__follaje--sup-der {
+  top: -5%;
+  right: -8%;
+  width: clamp(170px, 40vw, 400px);
+}
+
+.acuarela__follaje--sup-der svg {
+  transform: scaleX(-1) rotate(-6deg);
+}
+
+.acuarela__follaje--inf-izq {
+  bottom: -4%;
+  left: -6%;
+  width: clamp(170px, 38vw, 380px);
+}
+
+.acuarela__follaje--inf-der {
+  bottom: -5%;
+  right: -6%;
+  width: clamp(180px, 42vw, 420px);
+}
+
+.acuarela__follaje--inf-der svg {
+  transform: scaleX(-1);
+}
+
+.acuarela__tallo {
+  fill: none;
+  stroke: var(--c-green);
+  stroke-linecap: round;
+  opacity: 0.45;
+}
+
+/* En móvil el follaje superior se aligera para no competir con el título. */
+@media (max-width: 640px) {
+  .acuarela__follaje--sup-izq,
+  .acuarela__follaje--sup-der {
+    opacity: 0.75;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acuarela__follaje {
+    will-change: auto;
+    transform: none !important;
+  }
+}
+
+/* Lavado verde detrás de cada rama: da cuerpo de "copa" acuarelada. */
+.acuarela__copa {
+  position: absolute;
+  inset: 5% 15% 25% 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(127 166 80 / 0.28), rgb(200 216 74 / 0.12) 60%, transparent);
+  filter: blur(18px);
+}
+
+.acuarela__follaje--inf-izq .acuarela__copa,
+.acuarela__follaje--inf-der .acuarela__copa {
+  inset: 25% 20% 0 0;
+}
+
+.acuarela__follaje--sup-der .acuarela__copa,
+.acuarela__follaje--inf-der .acuarela__copa {
+  right: 0;
+  left: auto;
+}

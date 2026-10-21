@@ -1,0 +1,72 @@
+import AxeBuilder from '@axe-core/playwright'
+import { expect, test, type Page } from '@playwright/test'
+import { mkdirSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+
+// Verificación visual de la identidad base: capturas a 375 px y 1440 px,
+// sin scroll horizontal y sin violaciones de contraste (axe).
+// Las capturas van a CAPTURAS_DIR (por defecto test-results/capturas, ignorado por git).
+const DIR = resolve(process.env.CAPTURAS_DIR ?? 'test-results/capturas')
+const PREFIJO = process.env.CAPTURAS_PREFIJO ?? 'visual'
+mkdirSync(DIR, { recursive: true })
+
+const VISTAS = [
+  { nombre: '375', width: 375, height: 812 },
+  { nombre: '1440', width: 1440, height: 900 },
+] as const
+
+async function prepararPagina(page: Page) {
+  await page.goto('/')
+  await page.evaluate(() => document.fonts.ready)
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+}
+
+async function sinScrollHorizontal(page: Page) {
+  const medidas = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+  }))
+  expect(medidas.scrollWidth, JSON.stringify(medidas)).toBeLessThanOrEqual(medidas.innerWidth)
+}
+
+for (const vista of VISTAS) {
+  test(`identidad visual a ${vista.nombre} px`, async ({ page }) => {
+    await page.setViewportSize({ width: vista.width, height: vista.height })
+    await prepararPagina(page)
+    await sinScrollHorizontal(page)
+
+    const axe = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze()
+    expect(axe.violations, JSON.stringify(axe.violations, null, 2)).toEqual([])
+
+    await page.screenshot({ path: join(DIR, `${PREFIJO}-${vista.nombre}.png`), fullPage: true })
+
+    // Sobre el fondo acuarela (SVG/imagen) axe no puede medir todo y deja nodos "incomplete".
+    // Segunda pasada estricta: sin la capa decorativa, todo el texto debe medirse y aprobar.
+    await page.addStyleTag({
+      content: '.acuarela{display:none!important} body{background-image:none!important}',
+    })
+    const estricto = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze()
+    expect(estricto.violations, JSON.stringify(estricto.violations, null, 2)).toEqual([])
+    expect(
+      estricto.incomplete.flatMap((r) => r.nodes.map((n) => n.target.join(' '))),
+      'nodos sin medir',
+    ).toEqual([])
+  })
+}
+
+test.describe('con prefers-reduced-motion', () => {
+  test.use({ reducedMotion: 'reduce' })
+
+  test('375 px sin parallax', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await prepararPagina(page)
+    await page.mouse.wheel(0, 400)
+    const transformaciones = await page.$$eval('[data-profundidad]', (capas) =>
+      capas.map((c) => getComputedStyle(c).transform),
+    )
+    expect(transformaciones.every((t) => t === 'none')).toBe(true)
+    await sinScrollHorizontal(page)
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.screenshot({ path: join(DIR, `${PREFIJO}-375-reduced.png`), fullPage: true })
+  })
+})
