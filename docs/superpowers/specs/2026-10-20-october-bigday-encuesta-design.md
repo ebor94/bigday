@@ -80,7 +80,7 @@ Contraste: texto sobre tarjetas siempre `--c-ink` o `--c-teal-900` sobre blanco/
 ### Flujo
 1. **Bienvenida** — logo, "2.º October Big Day · Parque de Vida Los Olivos", texto de introducción, botón "Comenzar". El mosquero entra volando y se posa en una rama.
 2. **P1 → P7** — una pregunta por pantalla.
-3. **Gracias** — mensaje de cierre, bandada que despega, plumas/confeti suave, botón para compartir el evento (Web Share API con fallback a WhatsApp).
+3. **Gracias** — mensaje de cierre, bandada que despega, plumas/confeti suave, invitación a ver el video del evento con enlaces a Instagram y Facebook (decisión de Edwin 2026-10-21; reemplaza el botón de compartir).
 
 ### Interacciones
 - **Opción única:** tarjetas grandes (≥56 px de alto). Al elegir: microanimación (pulso + check), y avance automático a los 600 ms. Botón "Atrás" siempre visible.
