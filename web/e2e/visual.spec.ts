@@ -2,10 +2,12 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { PROYECTO_ANCHOS, soloEnProyectoDeAnchos } from './utilidades'
 
 // Verificación visual de la identidad base (pantalla de bienvenida): capturas a 375 px y 1440 px,
 // sin scroll horizontal y sin violaciones de contraste (axe).
 // Las capturas van a CAPTURAS_DIR (por defecto test-results/capturas, ignorado por git).
+// Los anchos fijos y las capturas corren solo en Desktop Chrome; reduced-motion, en los tres proyectos.
 const DIR = resolve(process.env.CAPTURAS_DIR ?? 'test-results/capturas')
 const PREFIJO = process.env.CAPTURAS_PREFIJO ?? 'visual'
 mkdirSync(DIR, { recursive: true })
@@ -39,6 +41,7 @@ async function sinScrollHorizontal(page: Page) {
 
 for (const vista of VISTAS) {
   test(`identidad visual a ${vista.nombre} px`, async ({ page }) => {
+    soloEnProyectoDeAnchos()
     await page.setViewportSize({ width: vista.width, height: vista.height })
     await prepararPagina(page)
     await sinScrollHorizontal(page)
@@ -83,6 +86,8 @@ test.describe('con prefers-reduced-motion', () => {
     // Espera a que el scroll vuelva a 0 y a que se pinte un frame antes de capturar.
     await page.waitForFunction(() => window.scrollY === 0)
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
-    await page.screenshot({ path: join(DIR, `${PREFIJO}-375-reduced.png`), fullPage: true })
+    if (test.info().project.name === PROYECTO_ANCHOS) {
+      await page.screenshot({ path: join(DIR, `${PREFIJO}-375-reduced.png`), fullPage: true })
+    }
   })
 })

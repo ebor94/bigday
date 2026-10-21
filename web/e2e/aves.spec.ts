@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { detenerReloj, PROYECTO_ANCHOS, soloEnProyectoDeAnchos } from './utilidades'
 
 // Aves animadas: rendimiento (solo transform/opacity, tope de 12), reduced-motion
 // y capturas deterministas con una bandada a mitad de vuelo.
@@ -34,7 +35,7 @@ async function preparar(page: Page, vista: { width: number; height: number }) {
   await page.setViewportSize(vista)
   await page.goto('/')
   // Reloj detenido: temporizadores (ambiente, avance automático) y GSAP solo avanzan con runFor.
-  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 50)
+  await detenerReloj(page)
   await page.evaluate(() => document.fonts.ready)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   // De la bienvenida a P1 (opciones).
@@ -188,7 +189,9 @@ test('las ambientales vuelan bajo el contenido; bandada y posada, encima', async
   await expect(page.locator('.capa-aves--fondo .ave--perched')).toHaveCount(0)
 })
 
-test('el vuelo no provoca layout por frame (métricas CDP)', async ({ page }) => {
+test('el vuelo no provoca layout por frame (métricas CDP)', async ({ page, browserName }) => {
+  // CDP (Performance.getMetrics) solo existe en Chromium; en WebKit no hay equivalente.
+  test.skip(browserName !== 'chromium', 'métricas CDP solo disponibles en Chromium')
   await preparar(page, { width: 1440, height: 900 })
   await page.locator('.opcion').first().click()
   await expect(page.locator('.ave--flock')).toHaveCount(BANDADA)
@@ -218,6 +221,7 @@ for (const vista of [
   { nombre: '1440', width: 1440, height: 900 },
 ] as const) {
   test(`captura con bandada a mitad de vuelo a ${vista.nombre} px`, async ({ page }) => {
+    soloEnProyectoDeAnchos()
     await preparar(page, vista)
     await page.clock.runFor(3_000) // primera oleada ambiental
     await page.locator('.opcion').nth(1).click()
@@ -260,6 +264,6 @@ test.describe('con prefers-reduced-motion', () => {
     await expect.poll(centrada).toBeLessThan(2)
     await page.evaluate(() => window.scrollBy({ top: 120, behavior: 'instant' }))
     await expect.poll(centrada).toBeLessThan(2)
-    await page.screenshot({ path: join(DIR, 'tarea7-375-reduced.png') })
+    if (test.info().project.name === PROYECTO_ANCHOS) await page.screenshot({ path: join(DIR, 'tarea7-375-reduced.png') })
   })
 })
