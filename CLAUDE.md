@@ -7,7 +7,8 @@ Encuesta web de experiencia del 2.º October Big Day (Parque de Vida Los Olivos,
 - Idioma de la UI, comentarios y commits: **español**.
 - Textos de las preguntas: **literales** de la spec §6. No reescribirlos.
 - Se guardan **códigos**, nunca los textos, en la BD.
-- La definición de preguntas y el esquema zod viven SOLO en `shared/`; front y back importan de ahí.
+- La definición de preguntas y el esquema zod viven SOLO en `shared/`; el front importa de ahí. El backend (módulo `src/bigday` de `ebor94/mantix`, clonado en `../mantix-git`) usa una copia **generada** con `npm run sync:backend`; nunca se edita a mano y un test de contrato detecta desincronización.
+- Backend: CommonJS + Jest, rutas bajo `/api/bigday/v1`, tabla `bigday_respuestas` en la base `serfuweb`. Trabajar en la rama `feature/bigday` de `mantix-git`; no hacer push sin autorización.
 - Animaciones solo con `transform` y `opacity`. Respetar siempre `prefers-reduced-motion`.
 - Las aves son SVG originales. No usar ilustraciones, personajes ni assets de terceros.
 - Nunca guardar IP ni user-agent en claro. Secretos solo en `.env`.

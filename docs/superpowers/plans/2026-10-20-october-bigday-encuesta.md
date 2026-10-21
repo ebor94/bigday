@@ -162,3 +162,15 @@ october-bigday-encuesta/
 1. `superpowers:requesting-code-review` sobre todo el diff.
 2. Corregir hallazgos.
 3. `superpowers:finishing-a-development-branch`.
+
+---
+
+## Enmienda 2026-10-20 (decisiones de Edwin)
+
+1. **Tabla en `serfuweb`** (no base `bigday`).
+2. **Backend en `ebor94/mantix`** (clon local `../mantix-git`, rama `feature/bigday`), como módulo `src/bigday` al estilo de `src/trk`: CommonJS, Jest + Supertest, rutas bajo `/api/bigday/v1` (`POST /respuestas`, `GET /resultados`, `GET /resultados.csv`, `GET /health`), pool mysql2 propio con variables `BIGDAY_DB_*`, `BIGDAY_HASH_SALT`, `BIGDAY_RESULTS_TOKEN`; exento del limitador global de Mantix con limitador propio; parser JSON propio de 10 KB. Migraciones en `src/bigday/migrations/`.
+3. **`shared/` sigue siendo la fuente única.** `npm run sync:backend` genera `src/bigday/shared/survey.config.cjs` en Mantix (bundle con zod incluido, cabecera "GENERADO" y hash de la fuente); `--check` y un test de contrato fallan si hay desincronización.
+4. **Front (`web/`), `shared/` y `deploy/` siguen en este repo.** Se elimina `api/` de este repo.
+5. Los enunciados de P1–P7 los aporta Edwin antes de la Tarea 9.
+
+Tareas resultantes: **4a** (este repo) script de sincronización + eliminar `api/`; **4b** (Mantix) módulo `src/bigday` con POST + health + migraciones, portando la lógica de `73a0efd`; **5** (Mantix) resultados y CSV. Tarea 11 ajusta Nginx para proxyar `/api/bigday/` al proceso de Mantix existente (sin PM2 nuevo).
