@@ -1,0 +1,67 @@
+# .htaccess de la encuesta October Big Day — AppServ (Apache 2.2 en Windows).
+# Solo directivas de Apache 2.2 (sin Require/Order 2.4). Todo lo que depende de un módulo va dentro de
+# <IfModule>: si el módulo no está cargado, la directiva se ignora y el sitio sigue funcionando.
+# Requiere AllowOverride con FileInfo, Indexes, Options y Limit (o All) para www/bigDay-encuesta.
+
+# Sin listado de directorios y página de entrada.
+Options -Indexes
+DirectoryIndex index.html
+
+# Tipos MIME (mod_mime, incluido en el núcleo de AppServ).
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType image/webp .webp
+  AddType image/svg+xml .svg
+  AddType application/manifest+json .webmanifest
+  AddType application/json .json
+  AddType font/woff2 .woff2
+  AddDefaultCharset UTF-8
+</IfModule>
+
+# Compresión (mod_deflate).
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/json application/manifest+json
+  AddOutputFilterByType DEFLATE image/svg+xml
+  # Navegadores muy viejos con fallos de gzip.
+  <IfModule mod_setenvif.c>
+    BrowserMatch ^Mozilla/4 gzip-only-text/html
+    BrowserMatch ^Mozilla/4\.0[678] no-gzip
+    BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+  </IfModule>
+  <IfModule mod_headers.c>
+    Header append Vary Accept-Encoding
+  </IfModule>
+</IfModule>
+
+# Caché (mod_expires): index.html siempre se revalida; el resto, un día.
+# Los archivos de assets/ llevan hash en el nombre: caché larga e inmutable (ver mod_headers abajo).
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 day"
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType image/webp "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # index.html (y la raíz /bigDay-encuesta/): sin caché, así un despliegue nuevo se ve de inmediato.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # Cabeceras de seguridad.
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+</IfModule>
+
+# Assets con hash (assets/*.js, *.css): caché de un año e inmutable.
+# En Apache 2.2 no hay <If>; se usa SetEnvIf sobre la URI y Header ... env=.
+<IfModule mod_setenvif.c>
+  <IfModule mod_headers.c>
+    SetEnvIf Request_URI "/assets/[^/]+\.(js|css|woff2?|svg|webp|png)$" ES_ASSET_HASH
+    Header set Cache-Control "public, max-age=31536000, immutable" env=ES_ASSET_HASH
+  </IfModule>
+</IfModule>

@@ -40,7 +40,12 @@ async function simularApi(page: Page, estado = 201, cuerpo: object = { ok: true 
   const enviados: unknown[] = []
   await page.route('**/api/bigday/v1/respuestas', async (route) => {
     enviados.push(route.request().postDataJSON())
-    await route.fulfill({ status: estado, contentType: 'application/json', body: JSON.stringify(cuerpo) })
+    await route.fulfill({
+      status: estado,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' }, // la API de producción es de otro origen
+      body: JSON.stringify(cuerpo),
+    })
   })
   return enviados
 }
@@ -48,7 +53,7 @@ async function simularApi(page: Page, estado = 201, cuerpo: object = { ok: true 
 async function abrir(page: Page, vista: { width?: number; height?: number } = {}, tituloEsperado = 'October') {
   await page.clock.install()
   if (vista.width && vista.height) await page.setViewportSize({ width: vista.width, height: vista.height })
-  await page.goto('/')
+  await page.goto('./')
   // Reloj detenido: temporizadores (ambiente, avance automático) y GSAP solo avanzan con runFor.
   await detenerReloj(page)
   await page.evaluate(() => document.fonts.ready)
@@ -459,7 +464,7 @@ test('segunda visita: tras enviar, al volver muestra "ya respondiste" con "Respo
   await expect(page.getByRole('status')).toContainText('Recibimos tu respuesta')
   expect(enviados).toHaveLength(1)
 
-  await page.goto('/')
+  await page.goto('./')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('¡Gracias, ya respondiste!')
   await expect(page.getByRole('status')).toHaveText('Tu respuesta ya está con nosotros.')
   await expect(page.getByRole('button', { name: 'Comenzar' })).toHaveCount(0)

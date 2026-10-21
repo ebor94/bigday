@@ -14,6 +14,8 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { servir } from './servidor-estatico.mjs'
 
+// Subruta de producción (debe coincidir con `base` de vite.config.ts).
+const BASE = '/bigDay-encuesta/'
 const MIN_PERFORMANCE = 85
 const MIN_ACCESIBILIDAD = 95
 
@@ -30,7 +32,7 @@ const mediana = (xs) => {
   return o.length % 2 ? o[(o.length - 1) / 2] : (o[o.length / 2 - 1] + o[o.length / 2]) / 2
 }
 
-const servidor = await servir(join(web, 'dist'))
+const servidor = await servir(join(web, 'dist'), 0, BASE)
 const chrome = await chromeLauncher.launch({
   chromePath: process.env.CHROME_PATH ?? chromium.executablePath(),
   chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu'],

@@ -23,13 +23,20 @@ const TIPOS = {
 const COMPRIMIBLES = new Set(['.html', '.js', '.css', '.svg', '.json', '.txt'])
 
 /**
- * Sirve `raiz` en `puerto` (0 = libre). Devuelve { url, cerrar }.
- * Rutas desconocidas sin extensión → index.html (SPA).
+ * Sirve `raiz` en `puerto` (0 = libre) bajo la subruta `prefijo` (p. ej. '/bigDay-encuesta/',
+ * como en producción; por defecto '/'). Devuelve { url, cerrar }.
+ * Fuera del prefijo → 404. Rutas desconocidas sin extensión → index.html (SPA).
  */
-export function servir(raiz, puerto = 0) {
+export function servir(raiz, puerto = 0, prefijo = '/') {
   const base = resolve(raiz)
+  const pref = `/${prefijo.replace(/^\/+|\/+$/g, '')}`.replace(/^\/$/, '')
   const servidor = createServer((req, res) => {
-    const ruta = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)
+    const completa = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)
+    if (pref && completa !== pref && !completa.startsWith(`${pref}/`)) {
+      res.writeHead(404).end()
+      return
+    }
+    const ruta = pref ? completa.slice(pref.length) || '/' : completa
     let archivo = normalize(join(base, ruta))
     if (archivo !== base && !archivo.startsWith(base + sep)) {
       res.writeHead(403).end()
@@ -61,7 +68,7 @@ export function servir(raiz, puerto = 0) {
   return new Promise((ok) => {
     servidor.listen(puerto, '127.0.0.1', () => {
       const { port } = servidor.address()
-      ok({ url: `http://127.0.0.1:${port}/`, cerrar: () => new Promise((fin) => servidor.close(fin)) })
+      ok({ url: `http://127.0.0.1:${port}${pref}/`, cerrar: () => new Promise((fin) => servidor.close(fin)) })
     })
   })
 }

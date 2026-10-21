@@ -33,7 +33,7 @@ async function preparar(page: Page, vista: { width: number; height: number }) {
   })
   await page.clock.install()
   await page.setViewportSize(vista)
-  await page.goto('/')
+  await page.goto('./')
   // Reloj detenido: temporizadores (ambiente, avance automático) y GSAP solo avanzan con runFor.
   await detenerReloj(page)
   await page.evaluate(() => document.fonts.ready)

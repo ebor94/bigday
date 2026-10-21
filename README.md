@@ -23,6 +23,10 @@ Monorepo con npm workspaces:
 
 - **TODO (Edwin): imagen hero del Mosquero Bermellón.** Exportar la ilustración del afiche a WebP (≤ 150 KB) y guardarla en `web/public/img/mosquero.webp`. La bienvenida la usa automáticamente en cuanto existe; mientras tanto muestra el ave SVG propia (`BirdSprite`) como reemplazo, sin romper el build.
 
+## Despliegue
+
+Producción: https://losolivoscucuta.com/bigDay-encuesta/ (AppServ, Apache 2.2). Guía y script en [`deploy/`](deploy/README.md): `deploy/desplegar-front.sh`.
+
 ## Requisitos
 
 - Node 20.19 o superior
@@ -34,7 +38,7 @@ Copia `.env.example` a `.env` y completa los valores. Los secretos van solo en `
 ## Comandos
 
 - `npm install`: instala dependencias de todos los paquetes.
-- `npm run dev`: levanta el front (web).
+- `npm run dev`: levanta el front (web), ahora bajo http://localhost:5173/bigDay-encuesta/ (por el `base` de Vite).
 - `npm run sync:backend`: genera la copia del esquema para el backend de Mantix (ver Arquitectura).
 - `npm run sync:backend -- --check`: verifica sin escribir que la copia del backend está al día (sale con código distinto de 0 si no).
 - `npm test`: pruebas Vitest en todos los paquetes.

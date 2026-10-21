@@ -19,7 +19,7 @@ const VISTAS = [
 ] as const
 
 async function prepararPagina(page: Page) {
-  await page.goto('/')
+  await page.goto('./')
   await page.evaluate(() => document.fonts.ready)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   // El mosquero de la bienvenida llega volando (animación CSS en tiempo real): se espera a
