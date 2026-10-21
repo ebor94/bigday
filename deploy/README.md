@@ -126,7 +126,32 @@ git checkout feat/encuesta-bigday    # volver a la rama
 
 No usar `--limpiar` durante un rollback (borraría los assets del build que se acaba de retirar, que pestañas abiertas aún podrían pedir).
 
-**Backend** (Mantix): revertir el merge del módulo en `main` (`git revert -m 1 <merge>` y push a `origin/main`, que es lo que descarga el servidor) y redesplegar con `deploy-mantix` como de costumbre. La tabla `bigday_respuestas` y la vista pueden quedarse: no molestan a Mantix y conservan las respuestas ya recibidas. Mientras el backend esté revertido, los envíos quedan pendientes en cada dispositivo y se reintentan solos (no se pierden: el front solo descarta ante 400, 413 o 422).
+**Backend** (Mantix). El módulo entró a `main` en **varias fusiones** de `feature/bigday`: `fce6851` (módulo), `5aab4fd` (DB_* y `bigday:migrate`), `2c1a4c2` (router y limitadores al cargar), más la de las correcciones finales (anotar su SHA al fusionar). Revertir solo una deja el código a medias. Dos opciones:
+
+1. **Emergencia (la más simple, recomendada):** desactivar la ruta sin revertir nada. En `src/routes/index.js` de Mantix comentar la línea
+
+   ```js
+   // router.use('/bigday/v1', bigdayRoutes); // ← Módulo October Big Day (encuesta)
+   ```
+
+   (el `require('../bigday/routes')` puede quedarse: al cargarse no abre conexiones ni lanza), hacer commit y push a `origin/main` y redesplegar con `deploy-mantix`. `/api/bigday/v1/*` pasa a responder el 404 de Mantix y el resto de Mantix no cambia. Para reactivarla, descomentar y redesplegar.
+
+2. **Reversión completa:** revertir **cada** fusión, de la más nueva a la más antigua, siempre con `-m 1` (el padre 1 es `main`):
+
+   ```bash
+   git checkout main && git pull
+   git log --merges --oneline --grep 'feature/bigday'   # confirmar la lista y el orden
+   git revert -m 1 <fusión-final>   # la de las correcciones finales
+   git revert -m 1 2c1a4c2
+   git revert -m 1 5aab4fd
+   git revert -m 1 fce6851
+   npx jest                          # Mantix sigue en verde
+   git push origin main && deploy-mantix
+   ```
+
+   Ojo: si más adelante se quiere volver a fusionar `feature/bigday`, git considera esos commits ya integrados; habría que revertir los reverts (`git revert <sha-del-revert>`) en lugar de fusionar de nuevo.
+
+En ambos casos la tabla `bigday_respuestas` y la vista pueden quedarse: no molestan a Mantix y conservan las respuestas ya recibidas. Mientras el backend esté desactivado, los envíos responden 404 y quedan pendientes en cada dispositivo, que los reintenta solo (no se pierden: el front solo descarta ante 400, 413 o 422).
 
 ## Enlaces y QR por origen
 
