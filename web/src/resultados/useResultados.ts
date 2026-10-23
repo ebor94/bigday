@@ -2,7 +2,9 @@
 // - El token vive en la sesión (sessionStorage) y en este cierre; no se expone como ref ni se registra.
 // - "Actualizar" conserva los datos anteriores mientras recarga y si falla (aviso, sin perder la vista).
 // - Un 401 con un token guardado (lo cambiaron en el servidor) cierra la sesión.
-// - Cada petición lleva un número de turno: una respuesta vieja que llega tarde (p. ej. tras "Salir") se ignora.
+// - Cada carga lleva un número de turno: una respuesta vieja que llega tarde (p. ej. tras "Salir") se ignora.
+// - La descarga del CSV es independiente de las recargas: solo se descarta si entre medio se pulsó "Salir"
+//   (cambia la generación de sesión); el botón siempre se reactiva.
 import { ref, shallowRef } from 'vue'
 import { mensajeError, type ClienteResultados } from './lib/api'
 import { NOMBRE_CSV, type ResultadoGuardar } from './lib/descarga'
@@ -29,6 +31,8 @@ export function useResultados({ cliente, sesion, guardar, ahora = () => new Date
   const descargando = ref(false)
   const entrando = ref(false)
   let turno = 0
+  /** Cambia solo al salir: invalida las descargas en curso de la sesión anterior. */
+  let generacion = 0
 
   function mostrar(r: Resultados) {
     datos.value = r
@@ -39,6 +43,7 @@ export function useResultados({ cliente, sesion, guardar, ahora = () => new Date
 
   function salir(mensaje = '') {
     turno++
+    generacion++
     sesion.borrar()
     datos.value = null
     actualizadoEn.value = null
@@ -93,18 +98,22 @@ export function useResultados({ cliente, sesion, guardar, ahora = () => new Date
   async function descargarCsv() {
     const token = sesion.leer()
     if (!token) return salir()
-    const mio = turno
+    const mia = generacion
     descargando.value = true
-    const r = await cliente.descargarCsv(token)
-    if (mio !== turno) return
-    descargando.value = false
-    if (r.tipo === 'ok') {
-      aviso.value = ''
-      guardar(r.datos, NOMBRE_CSV)
-      return
+    try {
+      const r = await cliente.descargarCsv(token)
+      if (mia !== generacion) return // pulsó "Salir" mientras tanto: no se guarda nada
+      if (r.tipo === 'ok') {
+        aviso.value = ''
+        guardar(r.datos, NOMBRE_CSV)
+        return
+      }
+      if (r.tipo === 'no_autorizado') return salir(mensajeError(r))
+      aviso.value = mensajeError(r)
+    } finally {
+      // Tras "Salir" ya quedó en false; una descarga de una sesión vieja no toca la de la nueva.
+      if (mia === generacion) descargando.value = false
     }
-    if (r.tipo === 'no_autorizado') return salir(mensajeError(r))
-    aviso.value = mensajeError(r)
   }
 
   return {

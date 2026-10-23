@@ -98,11 +98,8 @@ export function crearClienteResultados(opciones: OpcionesCliente = {}): ClienteR
         return esResultados(json) ? json : undefined
       }),
     descargarCsv: (token) =>
-      pedir('/resultados.csv', token, 'text/csv', async (res) => {
-        // Bytes tal cual (no res.text(): el decodificador quitaría el BOM UTF-8 que Excel necesita).
-        const bytes = await res.arrayBuffer()
-        return new Blob([bytes], { type: 'text/csv;charset=utf-8' })
-      }),
+      // res.blob() conserva los bytes tal cual (res.text() quitaría el BOM UTF-8 que Excel necesita).
+      pedir('/resultados.csv', token, 'text/csv', (res) => res.blob()),
   }
 }
 

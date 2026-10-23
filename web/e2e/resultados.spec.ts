@@ -116,6 +116,8 @@ test('token incorrecto → "Token incorrecto" y sigue en el formulario', async (
   await abrir(page)
   const campo = page.getByLabel('Token de resultados')
   await expect(campo).toHaveAttribute('type', 'password')
+  await expect(campo).toHaveAttribute('autocomplete', 'off')
+  await expect(campo).not.toHaveAttribute('name', /.*/)
   await entrar(page, 'token-equivocado')
   await expect(page.getByRole('alert')).toContainText('Token incorrecto')
   await expect(campo).toBeVisible()
@@ -160,12 +162,21 @@ test('token correcto → todas las secciones con los números simulados', async 
     await expect(fila.getByRole('cell').nth(1)).toContainText('42\u00a0%')
   } else {
     await expect(percepcion.getByRole('table')).toBeHidden()
-    await expect(percepcion.getByRole('heading', { name: `Antes: «${labelFor('p2', 'cementerio')}» 64 respuestas` })).toBeVisible()
+    await expect(percepcion.getByRole('heading', { name: /^Antes: «Un parque cementerio\.»\s*,\s*64 respuestas$/ })).toBeVisible()
+    // Compacta: sin combinaciones vacías (no_conocia → memoria es 0), con resumen de P3 y total general.
+    const grupoNoConocia = percepcion.locator('.matriz-lista__grupo', { hasText: labelFor('p2', 'no_conocia') })
+    await expect(grupoNoConocia.getByRole('listitem')).toHaveCount(2)
+    await expect(grupoNoConocia).not.toContainText(labelFor('p3', 'memoria'))
+    await expect(percepcion).toContainText('Se omiten las combinaciones sin respuestas.')
+    const resumen = percepcion.locator('.matriz-lista__resumen')
+    await expect(resumen.getByRole('heading')).toHaveText('Ahora (P3), todas las respuestas, Total: 120 respuestas')
+    await expect(resumen.getByRole('listitem')).toHaveCount(5)
+    await expect(resumen.getByRole('listitem').nth(1)).toHaveText(`${labelFor('p3', 'parque_vida')}46 respuestas, 38\u00a0%`)
   }
 
   // P6 (columnas con texto alternativo) y P1–P5 con enunciados y opciones literales
   await expect(page.getByRole('heading', { name: QUESTIONS[5].title })).toBeVisible()
-  await expect(page.getByRole('img', { name: /^Respuestas por valor de 1 a 10: 1: 2 .*10: 49 \(41\s%\)\.$/ })).toBeAttached()
+  await expect(page.getByRole('img', { name: /^Respuestas por valor de 1 a 10: 1: 2 .*10: 49 \(40,8\s%\)\.$/ })).toBeAttached()
   for (const id of ['p1', 'p2', 'p3', 'p4', 'p5'] as const) {
     const q = QUESTIONS.find((x) => x.id === id)!
     const figura = page.getByRole('figure', { name: q.title })
@@ -200,6 +211,24 @@ test('recargar mantiene la sesión; "Salir" la borra', async ({ page }) => {
   await page.reload()
   await expect(page.getByLabel('Token de resultados')).toBeVisible()
   expect(api.auth).toHaveLength(2)
+})
+
+test('al imprimir, la tabla de P6 sale aunque «Ver tabla» esté cerrado', async ({ page }) => {
+  await simularApi(page)
+  await abrir(page)
+  await entrar(page)
+  await expect(tablero(page)).toBeVisible()
+  const tabla = page.locator('.tabla-detalle table') // cerrado no está en el árbol de accesibilidad
+  await expect(tabla).toBeHidden()
+  await expect(tabla.locator('tbody tr').last()).toContainText('40,8\u00a0%') // % con 1 decimal
+  // beforeprint abre el <details>; afterprint lo deja como estaba.
+  await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+  await expect(tabla).toBeVisible()
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+  await expect(tabla).toBeHidden()
+  // Respaldo en CSS (@media print + ::details-content), por si el navegador no emite beforeprint.
+  await page.emulateMedia({ media: 'print' })
+  await expect(tabla).toBeVisible()
 })
 
 test('"Actualizar" vuelve a consultar y muestra los datos nuevos', async ({ page }) => {

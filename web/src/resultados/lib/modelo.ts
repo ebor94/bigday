@@ -193,7 +193,6 @@ export function modeloNps(p6: readonly ConteoValor[] | undefined): ModeloNps {
   const totales = [...porValor.values()]
   const total = sumar(totales)
   const maximo = Math.max(0, ...totales)
-  const pcts = porcentajesEnteros(totales)
   const orden: GrupoNps[] = ['promotor', 'pasivo', 'detractor']
   const porGrupo = orden.map((g) => sumar(valores.filter((v) => grupoNps(v) === g).map((v) => porValor.get(v)!)))
   const [promotores, , detractores] = porGrupo as [number, number, number]
@@ -212,7 +211,8 @@ export function modeloNps(p6: readonly ConteoValor[] | undefined): ModeloNps {
     barras: valores.map((valor, i) => ({
       valor,
       total: totales[i]!,
-      pct: pcts[i]!,
+      // 1 decimal, coherente con los % de los grupos (66,7 %).
+      pct: porcentaje(totales[i]!, total) ?? 0,
       grupo: grupoNps(valor),
       proporcion: maximo > 0 ? totales[i]! / maximo : 0,
     })),
@@ -290,6 +290,32 @@ export function modeloMatriz(celdas: readonly CeldaMatriz[] | undefined): Modelo
     columnas: p3.map((b) => ({ codigo: b, etiqueta: labelFor('p3', b), total: sumar(p2.map((a) => valor(a, b))) })),
     total: sumar(filas.map((f) => f.total)),
     maximo,
+  }
+}
+
+export interface ModeloMatrizCompacta {
+  /** Solo filas con respuestas y, dentro de ellas, solo celdas con respuestas (orden de QUESTIONS). */
+  filas: FilaMatriz[]
+  /** Totales de cada opción de P3 (todas) con % entero del total general. */
+  columnas: { codigo: string; etiqueta: string; total: number; pct: number }[]
+  total: number
+  /** true si se quitó alguna celda o fila vacía (para avisarlo). */
+  ocultas: boolean
+}
+
+/** Versión compacta de la matriz para pantallas estrechas: sin combinaciones vacías, con resumen de P3. */
+export function modeloMatrizCompacta(m: ModeloMatriz): ModeloMatrizCompacta {
+  const filas = m.filas
+    .filter((f) => f.total > 0)
+    .map((f) => ({ ...f, celdas: f.celdas.filter((c) => c.total > 0) }))
+  const pcts = porcentajesEnteros(m.columnas.map((c) => c.total))
+  const celdasTotales = m.filas.reduce((n, f) => n + f.celdas.length, 0)
+  const celdasVisibles = filas.reduce((n, f) => n + f.celdas.length, 0)
+  return {
+    filas,
+    columnas: m.columnas.map((c, i) => ({ ...c, pct: pcts[i]! })),
+    total: m.total,
+    ocultas: celdasVisibles < celdasTotales,
   }
 }
 

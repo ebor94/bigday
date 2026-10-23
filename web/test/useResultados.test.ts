@@ -156,4 +156,56 @@ describe('useResultados', () => {
     expect(r.vista.value).toBe('login')
     expect(r.datos.value).toBeNull()
   })
+
+  describe('descarga del CSV independiente de «Actualizar»', () => {
+    function conCsvPendiente() {
+      let soltarCsv!: (v: ResultadoApi<Blob>) => void
+      const sesion = sesionFalsa('tok')
+      const respuestas: ResultadoApi<Resultados>[] = [OK(), OK()]
+      const cliente: ClienteResultados = {
+        obtener: vi.fn(async (): Promise<ResultadoApi<Resultados>> => respuestas.shift() ?? { tipo: 'red' }),
+        descargarCsv: vi.fn(() => new Promise<ResultadoApi<Blob>>((ok) => (soltarCsv = ok))),
+      }
+      const guardar = vi.fn()
+      const r = useResultados({ cliente, sesion, ahora: () => AHORA, guardar })
+      return { r, guardar, soltar: (v: ResultadoApi<Blob>) => soltarCsv(v) }
+    }
+
+    it('actualizar durante la descarga: el archivo se guarda y el botón se reactiva', async () => {
+      const { r, guardar, soltar } = conCsvPendiente()
+      await r.iniciar()
+      const descarga = r.descargarCsv()
+      expect(r.descargando.value).toBe(true)
+      await r.actualizar()
+      const blob = new Blob(['a,b'])
+      soltar({ tipo: 'ok', datos: blob })
+      await descarga
+      expect(guardar).toHaveBeenCalledWith(blob, 'bigday-respuestas.csv')
+      expect(r.descargando.value).toBe(false)
+      expect(r.vista.value).toBe('listo')
+    })
+
+    it('salir durante la descarga: no se guarda nada y el botón queda reactivado', async () => {
+      const { r, guardar, soltar } = conCsvPendiente()
+      await r.iniciar()
+      const descarga = r.descargarCsv()
+      r.salir()
+      soltar({ tipo: 'ok', datos: new Blob(['a,b']) })
+      await descarga
+      expect(guardar).not.toHaveBeenCalled()
+      expect(r.descargando.value).toBe(false)
+      expect(r.vista.value).toBe('login')
+    })
+
+    it('un error de la descarga también reactiva el botón aunque haya habido una actualización', async () => {
+      const { r, soltar } = conCsvPendiente()
+      await r.iniciar()
+      const descarga = r.descargarCsv()
+      await r.actualizar()
+      soltar({ tipo: 'red' })
+      await descarga
+      expect(r.descargando.value).toBe(false)
+      expect(r.aviso.value).toMatch(/conexión/)
+    })
+  })
 })

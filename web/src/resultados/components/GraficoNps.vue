@@ -3,7 +3,7 @@
 // promotores) con leyenda. Las columnas son una imagen con texto alternativo (aria-label con todos los
 // números); la tabla equivalente se abre con «Ver tabla».
 import { QUESTIONS } from '@bigday/shared'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { COLORES_GRUPO_NPS, ETIQUETA_GRUPO_CORTA, formatoNps, formatoPct, type ModeloNps } from '../lib/modelo'
 
 const props = defineProps<{ modelo: ModeloNps }>()
@@ -15,6 +15,27 @@ const alternativo = computed(
       .map((b) => `${b.valor}: ${numero.format(b.total)} (${formatoPct(b.pct)})`)
       .join('; ')}.`,
 )
+
+// Al imprimir, la tabla sale siempre: se abre el <details> antes de imprimir y se deja como estaba después.
+// (El CSS de impresión también la fuerza con ::details-content donde el navegador lo admite.)
+const detalle = ref<HTMLDetailsElement | null>(null)
+let abiertoAntes = false
+function antesDeImprimir() {
+  if (!detalle.value) return
+  abiertoAntes = detalle.value.open
+  detalle.value.open = true
+}
+function despuesDeImprimir() {
+  if (detalle.value) detalle.value.open = abiertoAntes
+}
+onMounted(() => {
+  window.addEventListener('beforeprint', antesDeImprimir)
+  window.addEventListener('afterprint', despuesDeImprimir)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeprint', antesDeImprimir)
+  window.removeEventListener('afterprint', despuesDeImprimir)
+})
 </script>
 
 <template>
@@ -83,7 +104,10 @@ const alternativo = computed(
         </div>
       </div>
 
-      <details class="tabla-detalle">
+      <details
+        ref="detalle"
+        class="tabla-detalle"
+      >
         <summary>Ver tabla</summary>
         <table class="tabla">
           <caption class="sr-only">

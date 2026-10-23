@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Formulario del token de resultados. El campo NO tiene `name`: aunque el JS fallara y el formulario se
 // enviara de forma nativa, el token nunca viajaría en la URL ni en un cuerpo. Solo se emite al padre.
+// autocomplete="off": que los gestores de contraseñas no ofrezcan guardarlo.
 import { ref } from 'vue'
 
 defineProps<{ mensaje: string; enviando: boolean }>()
@@ -49,7 +50,7 @@ defineExpose({ enfocar: () => campo.value?.focus() })
         v-model="token"
         class="acceso__campo"
         type="password"
-        autocomplete="current-password"
+        autocomplete="off"
         autocapitalize="off"
         spellcheck="false"
         required

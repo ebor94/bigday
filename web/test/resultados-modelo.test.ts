@@ -13,6 +13,7 @@ import {
   modeloDistribucion,
   modeloFrases,
   modeloMatriz,
+  modeloMatrizCompacta,
   modeloNps,
   nivelCalor,
   porcentaje,
@@ -161,6 +162,11 @@ describe('modeloNps', () => {
     expect(m.barras[0]).toMatchObject({ total: 0, pct: 0, grupo: 'detractor', proporcion: 0 })
   })
 
+  it('% por valor con 1 decimal, coherente con los grupos (49 de 120 → 40,8)', () => {
+    const m = modeloNps(p6([2, 1, 1, 2, 3, 5, 9, 17, 31, 49]))
+    expect(m.barras.map((b) => b.pct)).toEqual([1.7, 0.8, 0.8, 1.7, 2.5, 4.2, 7.5, 14.2, 25.8, 40.8])
+  })
+
   it('sin respuestas: NPS null y nada en NaN; valores fuera de 1–10 se ignoran', () => {
     const vacio = modeloNps(undefined)
     expect(vacio.valor).toBeNull()
@@ -251,6 +257,42 @@ describe('modeloMatriz', () => {
     expect(r.total).toBe(0)
     expect(r.maximo).toBe(0)
     expect(r.filas.flatMap((f) => f.celdas).every((c) => c.nivel === 0 && c.pctFila === 0)).toBe(true)
+  })
+})
+
+describe('modeloMatrizCompacta (móvil)', () => {
+  const m = modeloMatriz(
+    celdas({ 'cementerio|parque_vida': 6, 'cementerio|memoria': 2, 'ambas|ambas': 4, 'no_conocia|otro': 1 }),
+  )
+  const c = modeloMatrizCompacta(m)
+
+  it('quita las filas y las celdas sin respuestas, conservando el orden de QUESTIONS', () => {
+    expect(c.filas.map((f) => f.codigo)).toEqual(['cementerio', 'ambas', 'no_conocia'])
+    expect(c.filas[0]!.celdas.map((x) => [x.codigo, x.total, x.pctFila])).toEqual([
+      ['memoria', 2, 25],
+      ['parque_vida', 6, 75],
+    ])
+    expect(c.filas[0]!.total).toBe(8)
+  })
+
+  it('resumen: totales de cada opción de P3 (todas, también las de 0) con % del total, y total general', () => {
+    expect(c.total).toBe(13)
+    expect(c.columnas.map((x) => [x.codigo, x.total, x.pct])).toEqual([
+      ['memoria', 2, 15],
+      ['parque_vida', 6, 46],
+      ['ambas', 4, 31],
+      ['sin_cambio', 0, 0],
+      ['otro', 1, 8],
+    ])
+    expect(c.columnas[1]!.etiqueta).toBe(labelFor('p3', 'parque_vida'))
+    expect(c.ocultas).toBe(true)
+  })
+
+  it('sin datos: sin filas y resumen en 0', () => {
+    const v = modeloMatrizCompacta(modeloMatriz(undefined))
+    expect(v.filas).toEqual([])
+    expect(v.total).toBe(0)
+    expect(v.columnas.every((x) => x.pct === 0)).toBe(true)
   })
 })
 
