@@ -40,6 +40,7 @@ curl -sI 'https://www.losolivoscucuta.com/bigDay-encuesta/?src=whatsapp' | grep 
 - `web/vite.config.ts`: `base: '/bigDay-encuesta/'` (absoluta; las imágenes de `public/img/` se resuelven con `BASE_URL`).
 - `web/.env.production`: `VITE_API_BASE=https://mantix-api.losolivoscucuta.com:8444/api/bigday/v1`. No es un secreto, por eso va en el repo.
 - `web/public/.htaccess`: se copia a `dist/` en cada build. Solo usa directivas de Apache 2.2.
+- Dos páginas, compiladas en dos pasadas (`npm run build` = `vite build && BIGDAY_PAGINA=resultados vite build`): `index.html` (la encuesta) y `resultados.html` (estadísticas, ver abajo). No comparten chunks: el bundle de la encuesta no cambia por la vista de resultados. `npm run peso -w @bigday/web` mide el peso inicial de cada página por separado (límite 180 KB gzip cada una).
 - La pantalla de gracias muestra los enlaces al video del evento (Instagram y Facebook), definidos en `web/src/lib/videoEvento.ts`. Ya no hay botón de compartir.
 
 ## Compilar y desplegar
@@ -60,9 +61,26 @@ El script:
 
 1. Falla con un mensaje claro si el destino (o `www/`) no existe, es decir, si AppServ no está montado.
 2. Ejecuta `npm run build -w @bigday/web` (con `.env.production`).
-3. Comprueba que `dist/index.html` referencia `/bigDay-encuesta/assets/`, que el bundle contiene la URL de la API de producción y que existe `dist/.htaccess`.
-4. Copia con `rsync` (sin `--delete`), dejando `index.html` para el final.
+3. Comprueba que `dist/index.html` y `dist/resultados.html` referencian `/bigDay-encuesta/assets/` (y que `resultados.html` lleva `noindex`), que el bundle contiene la URL de la API de producción y que existe `dist/.htaccess`.
+4. Copia con `rsync` (sin `--delete`), dejando `resultados.html` e `index.html` para el final.
 5. Solo con `--limpiar`: borra en `assets/` los archivos con nombre hasheado de Vite (`nombre-XXXXXXXX.ext`, 8 caracteres) que no están en el build nuevo; cualquier otro archivo de `assets/` o del destino se deja intacto. Ejecútalo fuera de hora pico: pestañas abiertas con el build anterior aún podrían pedir sus chunks viejos. Sin `--limpiar` nunca se borra nada.
+
+## Vista de estadísticas (resultados)
+
+**https://losolivoscucuta.com/bigDay-encuesta/resultados.html** muestra en vivo las estadísticas de la encuesta (total, NPS, distribución de P1–P6, matriz de cambio de percepción P2 × P3, últimas 20 frases de P7) y permite **descargar el CSV** completo (`bigday-respuestas.csv`).
+
+- **Token:** al abrirla pide el token de resultados, que es el valor de `BIGDAY_RESULTS_TOKEN` en el `.env` de Mantix (servidor de la API). Si esa variable está vacía, la página responde «Los resultados aún no están habilitados en el servidor» (la API da 503). Para cambiar el token: editar el `.env` de Mantix y reiniciar la API (PM2); quien tenga la página abierta tendrá que volver a escribirlo.
+- El token se envía solo en la cabecera `Authorization` (nunca en la URL) y se guarda en `sessionStorage` de esa pestaña: una recarga no lo vuelve a pedir; cerrar la pestaña o pulsar **Salir** lo borra. La API limita a 30 peticiones cada 10 minutos por IP (protección contra fuerza bruta): si se supera, la página pide esperar.
+- **No está enlazada desde la encuesta** y no se indexa (`<meta name="robots" content="noindex, nofollow">` y, con `mod_headers`, la cabecera `X-Robots-Tag: noindex, nofollow` del `.htaccess`). Pero **su única protección es el token**: cualquiera que lo tenga ve todas las respuestas y puede descargarlas. Compartirlo solo por un canal privado y con quien lo necesite; si se filtra, cambiarlo en Mantix.
+- **Despliegue:** el script `deploy/desplegar-front.sh` ya la compila y la copia (comprueba que `dist/resultados.html` exista, apunte a `/bigDay-encuesta/assets/` y lleve el `noindex`; copia los HTML al final). No hay que hacer nada aparte.
+- Comprobar tras desplegar:
+
+```bash
+curl -sI https://losolivoscucuta.com/bigDay-encuesta/resultados.html | grep -iE '^(HTTP|x-robots-tag|cache-control)'
+# → 200, X-Robots-Tag: noindex, nofollow (si hay mod_headers) y Cache-Control: no-cache
+```
+
+  y abrirla en el navegador con el token: deben verse los números. Si da «No hay conexión con el servidor», revisar CORS (la API debe permitir el origen `https://losolivoscucuta.com` y la cabecera `Authorization`).
 
 ## Si da error 500
 

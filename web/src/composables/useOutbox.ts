@@ -1,5 +1,6 @@
 import { getCurrentInstance, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Respuesta } from '@bigday/shared'
+import { esperaPedida } from '../lib/espera'
 
 // Envío robusto de la respuesta con bandeja de salida (reintento offline).
 // - 201 / 200 (uuid duplicado) → éxito: marca "ya respondió" y saca el uuid de la bandeja.
@@ -16,6 +17,8 @@ import type { Respuesta } from '@bigday/shared'
 // - Todo acceso a localStorage va en try/catch; si está bloqueado la bandeja vive en memoria.
 // - Si se usa dentro de un componente, `reintentarPendientes()` se registra solo en `onMounted`
 //   (opción `reintentarAlMontar: false` para desactivarlo). Fuera de un componente hay que llamarlo.
+
+export { esperaPedida }
 
 export const CLAVE_OUTBOX = 'bigday:outbox'
 export const CLAVE_RESPONDIDA = 'bigday:respondida'
@@ -49,22 +52,6 @@ export interface OpcionesOutbox {
 
 /** Resultado interno de un POST: en 'pendiente' puede traer cuánto pidió esperar el servidor. */
 type ResultadoPost = ResultadoEnvio & { esperaMs?: number }
-
-/**
- * Cuánto pide esperar el servidor (ms) según `Retry-After` (segundos o fecha HTTP), `RateLimit` (draft-7,
- * `reset=N`) o `RateLimit-Reset` (segundos). undefined si no hay cabecera válida.
- */
-export function esperaPedida(res: Response, ahora = Date.now()): number | undefined {
-  const retryAfter = res.headers.get('Retry-After')?.trim()
-  if (retryAfter) {
-    if (/^\d+$/.test(retryAfter)) return Number(retryAfter) * 1000
-    const fecha = Date.parse(retryAfter)
-    if (!Number.isNaN(fecha)) return Math.max(0, fecha - ahora)
-  }
-  const reset = res.headers.get('RateLimit')?.match(/(?:^|[;,\s])reset=(\d+)/i)?.[1] ?? res.headers.get('RateLimit-Reset')?.trim()
-  if (reset && /^\d+$/.test(reset)) return Number(reset) * 1000
-  return undefined
-}
 
 const MENSAJE_RECHAZO = 'No pudimos guardar tu respuesta. Revisa los datos e inténtalo de nuevo.'
 

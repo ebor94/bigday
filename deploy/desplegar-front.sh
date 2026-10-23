@@ -54,6 +54,16 @@ if ! grep -q "src=\"${SUBRUTA}assets/" "$DIST/index.html"; then
   echo "ERROR: dist/index.html no referencia '${SUBRUTA}assets/'. ¿Cambió 'base' en web/vite.config.ts?" >&2
   exit 1
 fi
+# Vista de estadísticas (segunda entrada del build, protegida con token): debe existir, apuntar a la
+# subruta y llevar noindex.
+if ! grep -q "src=\"${SUBRUTA}assets/" "$DIST/resultados.html" 2>/dev/null; then
+  echo "ERROR: falta dist/resultados.html o no referencia '${SUBRUTA}assets/'." >&2
+  exit 1
+fi
+if ! grep -q 'name="robots" content="noindex, nofollow"' "$DIST/resultados.html"; then
+  echo "ERROR: dist/resultados.html no lleva <meta name=\"robots\" content=\"noindex, nofollow\">." >&2
+  exit 1
+fi
 if ! grep -rqF "mantix-api.losolivoscucuta.com:8444/api/bigday/v1" "$DIST/assets"; then
   echo "ERROR: el build no contiene la URL de la API de producción. Revisa web/.env.production." >&2
   exit 1
@@ -62,14 +72,15 @@ if [ ! -f "$DIST/.htaccess" ]; then
   echo "ERROR: falta dist/.htaccess (debe venir de web/public/.htaccess)." >&2
   exit 1
 fi
-echo "==> Build correcto: referencia ${SUBRUTA} y la API de producción."
+echo "==> Build correcto: index.html y resultados.html referencian ${SUBRUTA} y la API de producción."
 
 # 4) Copia. Sin --delete. Se omiten permisos/propietarios (el destino suele ser SMB/Windows).
 OPC=(-rtv --no-perms --no-owner --no-group)
 [ "$SIMULAR" -eq 1 ] && OPC+=(--dry-run)
 echo "==> Copiando web/dist/ -> $DESTINO/"
-# index.html al final: así nadie recibe un index que apunta a assets aún no copiados.
-rsync "${OPC[@]}" --exclude '/index.html' "$DIST/" "$DESTINO/"
+# Los HTML al final: así nadie recibe una página que apunta a assets aún no copiados.
+rsync "${OPC[@]}" --exclude '/index.html' --exclude '/resultados.html' "$DIST/" "$DESTINO/"
+rsync "${OPC[@]}" "$DIST/resultados.html" "$DESTINO/resultados.html"
 rsync "${OPC[@]}" "$DIST/index.html" "$DESTINO/index.html"
 
 # 5) Limpieza opcional: solo assets/ con hash que ya no existen en el build nuevo.

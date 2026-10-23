@@ -46,7 +46,8 @@ DirectoryIndex index.html
 
 # Caché. Todo JS/CSS (y fuentes) de dist está en assets/ con hash en el nombre, así que mod_expires
 # mismo les da un año: el resultado es correcto gane mod_expires o mod_headers (en Apache 2.2 el
-# orden entre ambos no está garantizado). index.html se excluye de forma explícita: siempre se revalida.
+# orden entre ambos no está garantizado). index.html y resultados.html se excluyen de forma explícita:
+# siempre se revalidan.
 # Las imágenes de img/ no llevan hash: un día.
 <IfModule mod_expires.c>
   ExpiresActive On
@@ -54,7 +55,7 @@ DirectoryIndex index.html
   ExpiresByType application/javascript "access plus 1 year"
   ExpiresByType text/css "access plus 1 year"
   ExpiresByType font/woff2 "access plus 1 year"
-  <FilesMatch "^index\.html$">
+  <FilesMatch "^(index|resultados)\.html$">
     ExpiresActive Off
   </FilesMatch>
 </IfModule>
@@ -63,6 +64,13 @@ DirectoryIndex index.html
   # index.html (también al pedir /bigDay-encuesta/): sin caché, así un despliegue nuevo se ve de inmediato.
   <FilesMatch "^index\.html$">
     Header set Cache-Control "no-cache"
+  </FilesMatch>
+
+  # Vista de estadísticas (protegida solo por el token): que ningún buscador la indexe ni siga enlaces
+  # (además de la etiqueta <meta name="robots"> del propio HTML, que vale aunque falte mod_headers).
+  <FilesMatch "^resultados\.html$">
+    Header set Cache-Control "no-cache"
+    Header set X-Robots-Tag "noindex, nofollow"
   </FilesMatch>
 
   # Cabeceras de seguridad.
